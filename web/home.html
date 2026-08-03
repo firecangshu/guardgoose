@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护院鹅 · 首页</title>
+<link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>🛡️ 护院鹅</h1>
+    <span class="conn"><span class="dot" id="dot"></span><span id="connText">连接中…</span></span>
+  </div>
+
+  <!-- 守护状态大卡 -->
+  <div class="status-card state-away" id="card">
+    <div class="home-name" id="homeName">妈妈家</div>
+    <div class="status-emoji" id="emoji">🏠</div>
+    <div class="status-text" id="statusText">待接入</div>
+    <div class="status-sub" id="statusSub">等待守护数据…</div>
+  </div>
+  <div class="zone-pill z0" id="zonePill">Zone 0 正常</div>
+
+  <!-- 护家模式（可选） -->
+  <div class="card" id="guardModeBar" style="display:none;flex-direction:row;align-items:center;justify-content:space-between;padding:12px 16px;">
+    <div style="font-size:14px;">
+      <span id="guardModeIcon">🔒</span>
+      <span id="guardModeText">护家模式</span>
+    </div>
+    <button id="guardModeToggle" onclick="toggleGuardMode()" style="background:#2a2a4e;color:var(--accent);border:1px solid #3a4258;border-radius:8px;padding:6px 14px;font-size:13px;">访客模式</button>
+  </div>
+
+  <!-- 实时活动强度 -->
+  <div class="card">
+    <div class="lbl"><span>实时活动强度</span><span id="actVal">--</span></div>
+    <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+    <canvas class="spark" id="spark"></canvas>
+  </div>
+
+  <!-- 呼吸监测 -->
+  <div class="card">
+    <div class="lbl"><span>呼吸监测</span><span id="breathStateLbl">--</span></div>
+    <div class="breath-row">
+      <div class="breath-val"><span id="breathVal">--</span><span class="unit">次/分</span></div>
+      <div class="breath-state s-normal" id="breathState">--</div>
+    </div>
+  </div>
+
+  <!-- 语音确证面板（Zone 2 时显示） -->
+  <div class="voice-panel" id="voicePanel" style="display:none;">
+    <div class="voice-greeting">
+      <span class="voice-icon">🎙️</span>
+      <span id="voiceGreetingText">妈妈，您还好吗？</span>
+    </div>
+    <div class="voice-timer">
+      <div class="voice-timer-bar" id="voiceTimerBar"></div>
+      <span id="voiceCountdown">90</span>s
+    </div>
+    <div class="voice-buttons">
+      <button class="voice-btn ok" onclick="respondVoice('ok')">我没事</button>
+      <button class="voice-btn help" onclick="respondVoice('help')">我需要帮助</button>
+    </div>
+  </div>
+
+  <!-- 最近事件摘要 -->
+  <div class="card" style="cursor:pointer;" onclick="navigateTo('events')">
+    <div class="lbl"><span>最近事件</span><span style="color:var(--accent);">查看全部 ›</span></div>
+    <div id="recentList"><div class="empty">暂无事件</div></div>
+  </div>
+</div>
+
+<!-- 底部导航 -->
+<div class="tabbar">
+  <a href="home.html" class="active"><span class="tab-icon">🏠</span>首页</a>
+  <a href="events.html"><span class="tab-icon">📋</span>事件</a>
+  <a href="profile.html"><span class="tab-icon">❤️</span>档案</a>
+  <a href="settings.html"><span class="tab-icon">⚙️</span>设置</a>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+// ============ 状态映射 ============
+const ZONE_INFO = {
+  0: { text: '正常', emoji: '✅', sub: '一切正常', cls: 'state-ok',    pill: 'z0' },
+  1: { text: '注意', emoji: '🙂', sub: '检测到活动', cls: 'state-ok',   pill: 'z1' },
+  2: { text: '需确认', emoji: '⚠️', sub: '已呼叫语音确证', cls: 'state-warn', pill: 'z2' },
+  3: { text: '告警', emoji: '🚨', sub: '已通知子女', cls: 'state-alarm', pill: 'z3' },
+  4: { text: '紧急', emoji: '📞', sub: '已拨打120', cls: 'state-alarm', pill: 'z4' },
+};
+
+const BREATH_STATE = {
+  normal: { text: '正常', cls: 's-normal' },
+  fast:   { text: '偏快', cls: 's-warn' },
+  slow:   { text: '偏慢', cls: 's-warn' },
+  none:   { text: '未检测', cls: 's-alarm' },
+};
+
+// ============ 状态更新 ============
+function onStateUpdate(s) {
+  const z = s.zone || 0;
+  const info = ZONE_INFO[z] || ZONE_INFO[0];
+  const card = $('#card');
+  card.className = `status-card ${info.cls}`;
+  $('#emoji').textContent = info.emoji;
+  $('#statusText').textContent = info.text;
+  $('#statusSub').textContent = info.sub;
+  $('#homeName').textContent = s.home_name || '妈妈家';
+  const pill = $('#zonePill');
+  pill.className = `zone-pill ${info.pill}`;
+  pill.textContent = `Zone ${z} ${info.text}`;
+  // 活动强度
+  const act = s.activity || 0;
+  $('#actVal').textContent = (act * 100).toFixed(0) + '%';
+  $('#bar').style.width = Math.max(2, act * 100) + '%';
+  // 呼吸
+  const br = s.breath_rate;
+  $('#breathVal').textContent = br ? br.toFixed(1) : '--';
+  const bs = BREATH_STATE[s.breath_state || 'normal'] || BREATH_STATE.normal;
+  const bsEl = $('#breathState');
+  bsEl.className = `breath-state ${bs.cls}`;
+  bsEl.textContent = bs.text;
+  $('#breathStateLbl').textContent = bs.text;
+  // 语音面板（Zone 2 显示）
+  $('#voicePanel').style.display = z === 2 ? 'block' : 'none';
+  // 护家模式
+  if (s.guard_mode) $('#guardModeBar').style.display = 'flex';
+}
+
+function onNewEvent(e) {
+  // 更新最近事件列表
+  loadRecentEvents();
+}
+
+function onAlertEvent(a) {
+  // 高级别告警跳转
+  if (a.zone >= 3) {
+    showToast(`告警：${a.title}`, 'error');
+    setTimeout(() => navigateTo('alert', { id: a.id }), 800);
+  }
+}
+
+// ============ 语音确证 ============
+function respondVoice(answer) {
+  wsSend({ type: 'voice_response', answer });
+  $('#voicePanel').style.display = 'none';
+  showToast(answer === 'ok' ? '已确认老人安全' : '已转人工协助', 'success');
+}
+
+// ============ 护家模式 ============
+function toggleGuardMode() {
+  wsSend({ type: 'toggle_guard_mode' });
+  showToast('已切换护家模式', 'success');
+}
+
+// ============ 最近事件 ============
+async function loadRecentEvents() {
+  const data = await apiGet('/api/events?limit=3');
+  const list = $('#recentList');
+  if (!data || !data.items || data.items.length === 0) {
+    list.innerHTML = '<div class="empty">暂无事件</div>';
+    return;
+  }
+  list.innerHTML = data.items.map(e => `
+    <div class="event-item t-${e.type}" onclick="navigateTo('alert', { id: ${e.id} })">
+      <div class="event-head">
+        <span class="event-title">${e.title}</span>
+        <span class="event-time">${formatTime(e.ts)}</span>
+      </div>
+      <div class="event-desc">${e.desc}</div>
+      <span class="event-status ${e.status}">${e.status === 'resolved' ? '已处置' : e.status === 'pending' ? '待处理' : '进行中'}</span>
+    </div>
+  `).join('');
+}
+
+// ============ Canvas 火花线 ============
+const sparkData = [];
+function drawSpark() {
+  const cv = $('#spark');
+  if (!cv) return;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * (window.devicePixelRatio || 1);
+  cv.height = h * (window.devicePixelRatio || 1);
+  const ctx = cv.getContext('2d');
+  ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+  ctx.clearRect(0, 0, w, h);
+  if (sparkData.length < 2) return;
+  const max = Math.max(...sparkData, 0.1);
+  ctx.strokeStyle = '#7cc5ff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  sparkData.forEach((v, i) => {
+    const x = (i / (sparkData.length - 1)) * w;
+    const y = h - (v / max) * h * 0.9 - 3;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  ctx.fillStyle = 'rgba(124, 197, 255, 0.15)';
+  ctx.fill();
+}
+
+// 模拟实时数据更新（演示用，真实环境由 WS 推送）
+setInterval(() => {
+  if (!WAVEGUARD_STATE.connected) {
+    // 离线演示模式：用模拟数据
+    const mockAct = Math.random() * 0.4 + 0.05;
+    sparkData.push(mockAct);
+    if (sparkData.length > 40) sparkData.shift();
+    $('#actVal').textContent = (mockAct * 100).toFixed(0) + '%';
+    $('#bar').style.width = Math.max(2, mockAct * 100) + '%';
+    drawSpark();
+    if ($('#breathVal').textContent === '--') {
+      const br = 16 + Math.random() * 2;
+      $('#breathVal').textContent = br.toFixed(1);
+      $('#breathState').textContent = '正常';
+      $('#breathStateLbl').textContent = '正常';
+    }
+  }
+}, 1000);
+
+// 初始化
+loadRecentEvents();
+drawSpark();
+</script>
+</body>
+</html>

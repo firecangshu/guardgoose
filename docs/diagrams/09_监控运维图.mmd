@@ -1,0 +1,61 @@
+graph TB
+    subgraph 感知["📡 感知层"]
+        HW["ESP32 接收端<br/>设备ID: wg-001"]
+    end
+
+    subgraph 接入["🚪 API 鉴权层"]
+        AUTH["JWT 鉴权<br/>微信登录令牌<br/>7天有效期"]
+        RATE["限流<br/>100 req/min/dev"]
+        HTTPS["HTTPS/TLS 1.3<br/>证书: Let's Encrypt"]
+        HW -->|"HTTPS POST"| HTTPS
+        HTTPS --> AUTH
+        AUTH --> RATE
+    end
+
+    subgraph 边缘["🖥️ 边缘服务"]
+        APP["FastAPI 进程<br/>uvicorn + gunicorn"]
+        GUARD["进程守护<br/>systemd + 自动重启<br/>3次/5min 进 OOM"]
+    end
+
+    subgraph 监控["📊 可观测性"]
+        METRICS["健康检查<br/>GET /api/health<br/>返回: CPU/RAM/设备数/最后心跳"]
+        LOG["结构化日志<br/>JSON → logs/app.log<br/>轮转: 100MB × 7"]
+        ALERT_SELF["自告警<br/>异常 → 子女端推送"]
+    end
+
+    subgraph 容灾["🛡️ 容灾链路"]
+        NET_DOWN{"网络中断?"}
+        CACHE["本地缓存<br/>events/alerts 队列<br/>SQLite WAL 模式"]
+        RETRY["指数退避重传<br/>1s→2s→4s→8s→30s 上限"]
+        POWER_DOWN{"断电?"}
+        UPS["UPS 不间断电源<br/>续航: 30min"]
+        RECOVER["断电恢复<br/>SQLite 一致性校验<br/>未发送队列重投"]
+    end
+
+    subgraph 外部["🌐 外部依赖"]
+        QWEN["Qwen-plus API<br/>超时 3s → 降级规则引擎"]
+        DB[("SQLite<br/>WAL 模式<br/>自动 VACUUM")]
+    end
+
+    RATE --> APP
+    APP --> GUARD
+    APP --> METRICS
+    APP --> LOG
+    LOG --> ALERT_SELF
+    APP --> NET_DOWN
+    NET_DOWN -->|"是"| CACHE
+    CACHE --> RETRY
+    RETRY -->|"网络恢复"| APP
+    APP --> POWER_DOWN
+    POWER_DOWN -->|"是"| UPS
+    UPS -->|"电量耗尽"| RECOVER
+    RECOVER --> APP
+    APP --> QWEN
+    APP --> DB
+
+    style 感知 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style 接入 fill:#3a1a1a,stroke:#ef4444,color:#e8ecf4
+    style 边缘 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
+    style 监控 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4
+    style 容灾 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style 外部 fill:#1a3a2a,stroke:#34d399,color:#e8ecf4

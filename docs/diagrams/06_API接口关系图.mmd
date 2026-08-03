@@ -1,0 +1,62 @@
+graph LR
+    subgraph 硬件["📡 硬件端"]
+        HW["ESP32 接收端"]
+    end
+
+    subgraph 数据接入["📥 数据接入 API"]
+        E1["POST /ingest/sample<br/>上报CSI采样数据"]
+        E2["POST /ingest/event<br/>上报硬件事件"]
+        E3["GET /api/health<br/>健康检查"]
+        E4["GET /api/status<br/>设备状态查询"]
+    end
+
+    subgraph 状态查询["📊 状态查询 API"]
+        E5["GET /api/state<br/>当前Zone状态"]
+        E6["GET /api/events<br/>事件历史列表"]
+        E7["GET /api/events/{id}<br/>事件详情"]
+        E8["GET /api/alerts<br/>告警历史列表"]
+        E9["GET /api/alerts/{id}<br/>告警详情"]
+        E10["GET /api/stats<br/>统计分析数据"]
+    end
+
+    subgraph 病历管理["💊 病历管理 API"]
+        E11["GET /api/profile<br/>获取病历档案"]
+        E12["POST /api/profile<br/>更新病历档案"]
+    end
+
+    subgraph 控制操作["⚙️ 控制操作 API"]
+        E13["POST /api/voice-confirm/respond<br/>语音确证回应"]
+        E14["POST /api/guard/mode<br/>切换护家/访客模式"]
+    end
+
+    subgraph 实时通道["🔌 实时通道"]
+        WS["WebSocket /ws<br/>双向实时推送"]
+    end
+
+    subgraph 前端["📱 子女端"]
+        WEB["Web SPA"]
+    end
+
+    HW -->|"每秒采样"| E1
+    HW -->|"硬件事件"| E2
+    WEB -->|"轮询"| E3
+    WEB -->|"轮询"| E4
+    WEB -->|"首页加载"| E5
+    WEB -->|"时间线页"| E6
+    WEB -->|"详情跳转"| E7
+    WEB -->|"告警列表"| E8
+    WEB -->|"告警详情"| E9
+    WEB -->|"统计页"| E10
+    WEB -->|"档案页读取"| E11
+    WEB -->|"档案页保存"| E12
+    WEB -->|"语音回应"| E13
+    WEB -->|"模式切换"| E14
+    WEB <-->|"实时双向"| WS
+
+    style 硬件 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style 数据接入 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
+    style 状态查询 fill:#1a2a3a,stroke:#60a5fa,color:#e8ecf4
+    style 病历管理 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4
+    style 控制操作 fill:#2a1a3a,stroke:#a78bfa,color:#e8ecf4
+    style 实时通道 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style 前端 fill:#3a2a1a,stroke:#fbbf24,color:#e8ecf4

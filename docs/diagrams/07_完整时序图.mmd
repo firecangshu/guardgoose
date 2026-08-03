@@ -1,0 +1,80 @@
+sequenceDiagram
+    participant HW as ESP32 硬件
+    participant API as FastAPI
+    participant SM as 状态机
+    participant GD as 告警引擎
+    participant QWEN as Qwen-plus
+    participant DB as SQLite
+    participant WS as WebSocket
+    participant APP as 子女端
+
+    HW->>API: POST /ingest/sample<br/>{intensity: 0.95, breath: 16}
+    API->>SM: process_sample()
+    SM->>SM: 检测尖峰 → 跌倒观察窗
+    SM->>SM: 持续静止 10s → 确认跌倒
+
+    alt 分支1: 呼吸正常 → Zone 2
+        SM->>SM: 呼吸正常 → Zone 2
+        SM-->>API: Event{type: fall_detected, zone: 2}
+        API->>DB: 存储事件
+        API->>GD: derive_alert()
+        GD->>GD: 查询病历 → 无高危病史
+        GD->>QWEN: 发送事件上下文
+        QWEN-->>GD: {level: warning, state: voice_checking}
+        GD-->>API: Alert{level: warning}
+        API->>DB: 存储告警
+        API->>WS: 广播 event + alert
+        WS-->>APP: 实时推送
+        APP->>APP: 状态卡变橙色<br/>弹出语音确证面板<br/>TTS朗读您还好吗
+
+        Note over APP: 90秒倒计时...
+
+        alt 老人回应"我没事"
+            APP->>API: POST /voice-confirm/respond<br/>{response: "ok"}
+            API->>SM: reset_to_green()
+            API->>WS: 广播 alert_cleared
+            WS-->>APP: 状态恢复绿色
+        else 老人回应"需要帮助"
+            APP->>API: POST /voice-confirm/respond<br/>{response: "help"}
+            API->>SM: escalate_to(Zone 3)
+            API->>WS: 广播 alert_escalated
+            WS-->>APP: 状态变红色告警
+        else 90秒超时
+            API->>SM: 超时 → Zone 3
+            API->>WS: 广播 alert_escalated
+            WS-->>APP: 自动升级为紧急告警
+        end
+    else 分支2: 呼吸异常 → Zone 3
+        SM->>SM: 呼吸异常 → Zone 3
+        SM-->>API: Event{type: fall_detected, zone: 3}
+        API->>DB: 存储事件
+        API->>GD: derive_alert()
+        GD->>QWEN: 发送事件上下文 + 高危病史
+        QWEN-->>GD: {level: critical, state: alerting}
+        GD-->>API: Alert{level: critical}
+        API->>DB: 存储告警
+        API->>WS: 广播 event + alert
+        WS-->>APP: 红色告警 + 声音提醒
+
+        Note over APP: 5分钟子女确认倒计时...
+
+        alt 子女5分钟内确认
+            APP->>API: 子女确认处理
+            API->>SM: reset_to_green()
+            API->>WS: 广播 alert_cleared
+            WS-->>APP: 状态恢复绿色
+        else 5分钟超时
+            API->>SM: 超时 → Zone 4
+            API->>WS: 广播 alert_escalated
+            WS-->>APP: 紧急救援告警
+        end
+    else 分支3: 呼吸消失 → Zone 4
+        SM->>SM: 呼吸<3次/分 → Zone 4
+        SM-->>API: Event{type: breath_lost, zone: 4}
+        API->>DB: 存储事件
+        API->>GD: derive_alert()
+        GD-->>API: Alert{level: emergency}
+        API->>DB: 存储告警
+        API->>WS: 广播 event + alert
+        WS-->>APP: 黑色紧急告警<br/>一键拨打120
+    end

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>护院鹅 · 系统架构图全套预览</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f1420;
+    color: #e8ecf4;
+    font-family: -apple-system, "Microsoft YaHei", sans-serif;
+    text-align: center;
+  }
+  header {
+    padding: 32px 20px 16px;
+  }
+  h1 { color: #60a5fa; font-size: 26px; margin-bottom: 8px; }
+  .subtitle { color: #94a3b8; font-size: 14px; }
+  .badges { margin: 12px 0 20px; }
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 12px;
+    font-size: 12px; margin: 0 4px;
+  }
+  .bg-green { background: #1a3a2a; color: #6ee7b7; border: 1px solid #10b981; }
+  .bg-blue { background: #1a2a3a; color: #93c5fd; border: 1px solid #3b82f6; }
+  .bg-purple { background: #2a1a3a; color: #c4b5fd; border: 1px solid #8b5cf6; }
+  .bg-orange { background: #3a2a1a; color: #fbbf24; border: 1px solid #f59e0b; }
+  .diagram-section {
+    max-width: 100%;
+    margin: 0 auto 40px;
+    padding: 0 20px;
+  }
+  .diagram-section h2 {
+    font-size: 20px; margin-bottom: 8px; color: #93c5fd;
+    border-left: 4px solid #3b82f6; padding-left: 12px;
+    text-align: left;
+  }
+  .diagram-section .desc {
+    color: #94a3b8; font-size: 13px; margin-bottom: 16px; text-align: left;
+  }
+  img {
+    max-width: 100%; height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    border: 1px solid #2d3748;
+  }
+  .toolbar { margin: 12px 0; }
+  .toolbar a {
+    display: inline-block; padding: 6px 14px;
+    background: #1e293b; color: #93c5fd;
+    text-decoration: none; border-radius: 6px;
+    border: 1px solid #3b82f6; margin: 0 4px;
+    font-size: 12px;
+  }
+  .toolbar a:hover { background: #1e3a5f; }
+  footer {
+    padding: 24px 20px;
+    color: #64748b; font-size: 12px;
+  }
+  footer .note {
+    background: #1e293b; border-left: 3px solid #f59e0b;
+    padding: 12px 16px; border-radius: 0 8px 8px 0;
+    color: #fbbf24; font-size: 13px;
+    text-align: left; max-width: 800px; margin: 0 auto;
+  }
+  .file-list {
+    list-style: none; padding: 0;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+    margin: 16px 0;
+  }
+  .file-list li {
+    background: #1e293b; border: 1px solid #3b82f6;
+    padding: 4px 12px; border-radius: 6px;
+    font-size: 12px; color: #93c5fd;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ 护院鹅 · 系统架构全景图（共 13 张）</h1>
+  <p class="subtitle">WiFi CSI 居家安全守护系统 · 专业工程图</p>
+  <div class="badges">
+    <span class="badge bg-green">感知层</span>
+    <span class="badge bg-blue">边缘层</span>
+    <span class="badge bg-purple">认知层</span>
+    <span class="badge bg-orange">交互层</span>
+  </div>
+  <div class="toolbar">
+    <a href="#fig1">一、系统总体架构</a>
+    <a href="#fig2">二、组件关系图</a>
+    <a href="#fig3">三、数据依赖图</a>
+    <a href="#fig4">四、SOP流程图</a>
+    <a href="#fig5">五、Zone状态机</a>
+    <a href="#fig6">六、API接口关系</a>
+    <a href="#fig7">七、完整时序图</a>
+    <a href="#fig8">八、开发计划甘特图</a>
+    <a href="#fig9">九、监控运维图</a>
+    <a href="#fig10">十、隐私边界图</a>
+    <a href="#fig11">十一、版本演进路线图</a>
+    <a href="#fig12">十二、测试与成本功耗图</a>
+    <a href="#fig13">十三、初赛开发时序计划</a>
+  </div>
+  <ul class="file-list">
+    <li>.drawio 源文件（可编辑）</li>
+    <li>.mmd 源码（文本备份）</li>
+    <li>PNG 预览（不可编辑）</li>
+  </ul>
+</header>
+
+<div id="fig1" class="diagram-section">
+  <h2>一、系统总体架构</h2>
+  <p class="desc">从硬件感知到子女端展示的完整四层架构（31节点/19连线）</p>
+  <img src="01_系统架构图_预览.png" alt="系统总体架构图">
+  <div class="toolbar">
+    <a href="01_系统架构图.drawio" download>⬇️ .drawio</a>
+    <a href="01_系统架构图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig2" class="diagram-section">
+  <h2>二、前端组件关系 + 后端服务依赖图</h2>
+  <p class="desc">子女端 Web SPA 的页面结构与组件关系（39节点/39连线）</p>
+  <img src="02_组件关系图_预览.png" alt="组件关系图">
+  <div class="toolbar">
+    <a href="02_组件关系图.drawio" download>⬇️ .drawio</a>
+    <a href="02_组件关系图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig3" class="diagram-section">
+  <h2>三、核心数据流转链路图</h2>
+  <p class="desc">一个跌倒事件从硬件感知到子女端的完整链路（22节点/14连线）</p>
+  <img src="03_数据依赖图_预览.png" alt="数据依赖图">
+  <div class="toolbar">
+    <a href="03_数据依赖图.drawio" download>⬇️ .drawio</a>
+    <a href="03_数据依赖图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig4" class="diagram-section">
+  <h2>四、跌倒事件处理 SOP 流程图</h2>
+  <p class="desc">Zone 状态机升降级规则与告警处理流程（22节点/29连线）</p>
+  <img src="04_SOP流程图_预览.png" alt="SOP流程图">
+  <div class="toolbar">
+    <a href="04_SOP流程图.drawio" download>⬇️ .drawio</a>
+    <a href="04_SOP流程图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig5" class="diagram-section">
+  <h2>五、Zone 状态机图（6 级升降级规则）</h2>
+  <p class="desc">Zone 0/1/2/3/4 之间的完整升降级规则，核心决策逻辑（9节点/14连线）</p>
+  <img src="05_Zone状态机图_预览.png" alt="Zone状态机图">
+  <div class="toolbar">
+    <a href="05_Zone状态机图.drawio" download>⬇️ .drawio</a>
+    <a href="05_Zone状态机图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig6" class="diagram-section">
+  <h2>六、API 接口关系图（14 端点 + WebSocket）</h2>
+  <p class="desc">14 个 REST 端点 + WebSocket 实时通道的调用关系，前后端联调必备（23节点/7连线）</p>
+  <img src="06_API接口关系图_预览.png" alt="API接口关系图">
+  <div class="toolbar">
+    <a href="06_API接口关系图.drawio" download>⬇️ .drawio</a>
+    <a href="06_API接口关系图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig7" class="diagram-section">
+  <h2>七、跌倒事件完整时序图（含 3 分支）</h2>
+  <p class="desc">含 Zone 2/3/4 三个分支的完整跌倒时序，比图三更详细（29节点）</p>
+  <img src="07_完整时序图_预览.png" alt="完整时序图">
+  <div class="toolbar">
+    <a href="07_完整时序图.drawio" download>⬇️ .drawio</a>
+    <a href="07_完整时序图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig8" class="diagram-section">
+  <h2>八、开发计划甘特图（四阶段路线图）</h2>
+  <p class="desc">四阶段开发路线图，立项汇报用（26节点）</p>
+  <img src="08_开发计划甘特图_预览.png" alt="开发计划甘特图">
+  <div class="toolbar">
+    <a href="08_开发计划甘特图.drawio" download>⬇️ .drawio</a>
+    <a href="08_开发计划甘特图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig9" class="diagram-section">
+  <h2>九、监控运维图（鉴权/容灾/可观测性）🆕</h2>
+  <p class="desc">解决 P0 遗漏 #1/#2 + P1 #12/#13：补全监控/容灾/鉴权/加密四大工程实践</p>
+  <img src="09_监控运维图_预览.png" alt="监控运维图">
+  <div class="toolbar">
+    <a href="09_监控运维图.drawio" download>⬇️ .drawio</a>
+    <a href="09_监控运维图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig10" class="diagram-section">
+  <h2>十、隐私边界图（CSI 本地处理 + 参数显式）🆕</h2>
+  <p class="desc">解决 P0 遗漏 #4/#7 + P1 #9：显式标注 CSI 采样参数 + 隐私脱敏边界（原始CSI不出本地）</p>
+  <img src="10_隐私边界图_预览.png" alt="隐私边界图">
+  <div class="toolbar">
+    <a href="10_隐私边界图.drawio" download>⬇️ .drawio</a>
+    <a href="10_隐私边界图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig11" class="diagram-section">
+  <h2>十一、版本演进路线图（v1.0→v3.0）🆕</h2>
+  <p class="desc">解决 P2 遗漏 #17：v1.0 MVP → v1.1 增强 → v2.0 多房间 → v3.0 AI增强 完整演进路径</p>
+  <img src="11_版本演进路线图_预览.png" alt="版本演进路线图">
+  <div class="toolbar">
+    <a href="11_版本演进路线图.drawio" download>⬇️ .drawio</a>
+    <a href="11_版本演进路线图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig12" class="diagram-section">
+  <h2>十二、测试与成本功耗图（12场景+预算+指标）🆕</h2>
+  <p class="desc">解决 P2 遗漏 #15/#16/#18：12场景测试矩阵 + 成本预算 + 功耗预算 + 6项性能指标</p>
+  <img src="12_测试与成本功耗图_预览.png" alt="测试与成本功耗图">
+  <div class="toolbar">
+    <a href="12_测试与成本功耗图.drawio" download>⬇️ .drawio</a>
+    <a href="12_测试与成本功耗图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<div id="fig13" class="diagram-section">
+  <h2>十三、初赛开发时序计划甘特图（10天倒排）🆕</h2>
+  <p class="desc">08-03→08-13 五阶段开发时序：前端UI → 后端API → 硬件对接 → 集成测试 → 文档视频</p>
+  <img src="13_初赛开发时序计划甘特图_预览.png" alt="初赛开发时序计划甘特图">
+  <div class="toolbar">
+    <a href="13_初赛开发时序计划甘特图.mmd" download>⬇️ .mmd</a>
+  </div>
+</div>
+
+<footer>
+  <div class="note">
+    <strong>使用指南：</strong><br/>
+    1. 可编辑版：用 drawio 桌面版打开 .drawio 文件<br/>
+    2. 文本备份：.mmd 文件可用任何文本编辑器查看或转换为其他格式<br/>
+    3. 快速预览：PNG 文件可直接打开，无需额外软件<br/>
+    4. 本套图基于 Mermaid.js 渲染引擎生成，使用 Edge 浏览器作为渲染后端<br/>
+    5. 共 12 张图，覆盖：系统/组件/数据/SOP/状态机/API/时序/计划 + 监控运维/隐私边界/版本演进/测试成本（经乔哈里视窗盲点诊断补充 4 张）
+  </div>
+  <p style="margin-top:20px;">版本 v1.0 | 日期 2026-08-03 | 工具 drawio 29.0.3 / mermaid-cli | 诊断 johari-prompt-coach</p>
+</footer>
+</body>
+</html>

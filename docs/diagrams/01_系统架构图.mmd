@@ -1,0 +1,52 @@
+graph TB
+    subgraph 感知层["📡 感知层 · ESP32 硬件"]
+        TX["ESP32 发射端<br/>发送 CSI 探测帧"]
+        RX["ESP32 接收端<br/>采集 CSI 数据"]
+        TX -->|"WiFi 信号穿过人体"| RX
+    end
+
+    subgraph 边缘层["🖥️ 边缘层 · 本地服务器"]
+        INGEST["数据接入<br/>POST /ingest/sample"]
+        SM["状态机<br/>六区六级判定"]
+        BREATH["呼吸提取<br/>FFT + 带通滤波"]
+        ACT["活动强度<br/>方差 + 能量计算"]
+        INGEST --> ACT
+        INGEST --> BREATH
+        ACT --> SM
+        BREATH --> SM
+    end
+
+    subgraph 认知层["🧠 认知层 · AI 决策"]
+        QWEN["Qwen-plus<br/>医学推理引擎"]
+        RULE["规则引擎<br/>降级保底"]
+        MEDICAL["病历个性化<br/>8种病史策略"]
+        VOICE["语音确证<br/>Zone 2 会话管理"]
+        GUARD["防盗监测<br/>护家模式"]
+        QWEN <-->|"优先调用<br/>超时降级"| RULE
+        MEDICAL --> QWEN
+        MEDICAL --> RULE
+    end
+
+    subgraph 交互层["📱 交互层 · 子女端"]
+        WS["WebSocket<br/>实时推送"]
+        WEB["Web SPA<br/>浏览器访问"]
+        TTS["TTS 朗读<br/>语音确证"]
+        ALERT["告警通知<br/>分级推送"]
+        WS --> WEB
+        WEB --> TTS
+        WEB --> ALERT
+    end
+
+    RX -->|"原始 CSI 数据<br/>HTTP/MQTT"| INGEST
+    SM -->|"事件流"| QWEN
+    SM -->|"事件流"| RULE
+    SM -->|"语音确证触发"| VOICE
+    QWEN -->|"告警决策"| WS
+    RULE -->|"告警决策"| WS
+    VOICE -->|"确证结果"| WS
+    GUARD -->|"入侵告警"| WS
+
+    style 感知层 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style 边缘层 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
+    style 认知层 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4
+    style 交互层 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4

@@ -1,0 +1,50 @@
+graph TB
+    subgraph 矩阵["🧪 测试场景矩阵（12 场景）"]
+        direction TB
+        T1["T01 静止状态<br/>预期: Zone 0 持续"]
+        T2["T02 正常走动<br/>预期: Zone 0 活动"]
+        T3["T03 剧烈运动<br/>预期: intensity > 0.8 不静止"]
+        T4["T04 跌倒+呼吸正常<br/>预期: Zone 2 → 语音确证 → 解除"]
+        T5["T05 跌倒+呼吸异常<br/>预期: Zone 3 立即告警"]
+        T6["T06 跌倒+无呼吸<br/>预期: Zone 4 拨打120"]
+        T7["T07 语音回应我没事<br/>预期: 90s 内 → Zone 0"]
+        T8["T08 语音超时90s<br/>预期: 升级 Zone 3"]
+        T9["T09 子女5min超时<br/>预期: 升级 Zone 4"]
+        T10["T10 高血压病史10min<br/>预期: 升级 Zone 4"]
+        T11["T11 网络断开恢复<br/>预期: 本地缓存 → 重传成功"]
+        T12["T12 断电恢复<br/>预期: UPS + SQLite 校验"]
+    end
+
+    subgraph 成本["💰 成本预算"]
+        C1["ESP32 模块<br/>¥35/对 × 2 = ¥70"]
+        C2["边缘服务器<br/>树莓派4B 4G: ¥350<br/>Jetson Nano: ¥800"]
+        C3["UPS 不间断电源<br/>¥150 / 30min续航"]
+        C4["云服务<br/>Qwen API: ¥0.01/次<br/>月均: ¥30"]
+        C5["合计 MVP<br/>¥600 (树莓派方案)<br/>¥1050 (Jetson方案)"]
+    end
+
+    subgraph 功耗["⚡ 功耗预算（7×24 运行）"]
+        P1["ESP32 接收端<br/>0.5W × 24h = 12Wh/天"]
+        P2["树莓派4B<br/>3W × 24h = 72Wh/天"]
+        P3["Jetson Nano<br/>5W × 24h = 120Wh/天"]
+        P4["UPS 损耗<br/>约 10% 转换损失"]
+        P5["月耗电<br/>树莓派: ~2.5度 ¥1.5<br/>Jetson: ~4度 ¥2.4"]
+    end
+
+    subgraph 指标["📈 性能指标"]
+        M1["跌倒识别准确率<br/>目标: ≥ 95%"]
+        M2["误报率<br/>目标: ≤ 2次/天"]
+        M3["告警延迟<br/>目标: ≤ 5秒（采集→推送）"]
+        M4["WebSocket 重连<br/>目标: ≤ 10秒"]
+        M5["呼吸频率误差<br/>目标: ≤ ±2次/分"]
+        M6["Qwen 推理延迟<br/>目标: ≤ 3秒（含降级）"]
+    end
+
+    矩阵 --> 成本
+    成本 --> 功耗
+    功耗 --> 指标
+
+    style 矩阵 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
+    style 成本 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style 功耗 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style 指标 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护院鹅 · 告警详情</title>
+<link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a href="events.html" class="back">‹</a>
+    <h1>🚨 告警详情</h1>
+    <span style="width:32px;"></span>
+  </div>
+
+  <!-- 告警主卡 -->
+  <div class="status-card state-alarm" id="alertCard">
+    <div class="status-emoji" id="alertEmoji">🚨</div>
+    <div class="status-text" id="alertTitle">跌倒告警</div>
+    <div class="status-sub" id="alertTime">--</div>
+  </div>
+  <div class="zone-pill z3" id="alertZone">Zone 3 告警</div>
+
+  <!-- 告警信息 -->
+  <div class="card">
+    <div class="lbl"><span>告警信息</span></div>
+    <div class="flex-between mt-2">
+      <span class="text-sm text-mute">事件类型</span>
+      <span id="eventType">跌倒</span>
+    </div>
+    <div class="flex-between mt-2">
+      <span class="text-sm text-mute">发生时间</span>
+      <span id="eventTime">--</span>
+    </div>
+    <div class="flex-between mt-2">
+      <span class="text-sm text-mute">检测设备</span>
+      <span id="eventDevice">wg-001</span>
+    </div>
+    <div class="flex-between mt-2">
+      <span class="text-sm text-mute">检测位置</span>
+      <span id="eventLocation">客厅</span>
+    </div>
+    <div class="flex-between mt-2">
+      <span class="text-sm text-mute">活动强度</span>
+      <span id="eventActivity">--</span>
+    </div>
+    <div class="flex-between mt-2">
+      <span class="text-sm text-mute">呼吸频率</span>
+      <span id="eventBreath">--</span>
+    </div>
+  </div>
+
+  <!-- AI 分析 -->
+  <div class="card">
+    <div class="lbl"><span>🤖 Qwen AI 分析</span></div>
+    <div id="aiAnalysis" class="text-sm" style="line-height:1.7;color:var(--text-soft);">
+      分析中…
+    </div>
+  </div>
+
+  <!-- 处置建议 -->
+  <div class="card">
+    <div class="lbl"><span>💡 处置建议</span></div>
+    <div id="suggestions" class="text-sm" style="line-height:1.8;">
+      • 立即电话联系老人确认状况<br>
+      • 若无响应，联系邻居或亲属上门<br>
+      • 紧急情况拨打 120 急救
+    </div>
+  </div>
+
+  <!-- 处置按钮 -->
+  <div class="card" id="actionPanel">
+    <div class="lbl"><span>处置操作</span></div>
+    <div class="flex gap-2" style="flex-direction:column;gap:10px;margin-top:8px;">
+      <button class="save-btn" style="background:var(--safe);" onclick="resolveAlert('safe')">✓ 老人安全</button>
+      <button class="save-btn" style="background:var(--info);" onclick="resolveAlert('help')">📞 联系老人</button>
+      <button class="save-btn" style="background:var(--alarm);" onclick="resolveAlert('emergency')">🚑 拨打120</button>
+      <button class="save-btn" style="background:var(--bg-input);color:var(--text-soft);" onclick="resolveAlert('false')">✕ 误报</button>
+    </div>
+  </div>
+
+  <!-- 处置记录 -->
+  <div class="card" id="resolvePanel" style="display:none;">
+    <div class="lbl"><span>处置记录</span></div>
+    <div id="resolveLog" class="text-sm" style="line-height:1.8;color:var(--text-soft);"></div>
+  </div>
+</div>
+
+<div class="tabbar">
+  <a href="home.html"><span class="tab-icon">🏠</span>首页</a>
+  <a href="events.html"><span class="tab-icon">📋</span>事件</a>
+  <a href="profile.html"><span class="tab-icon">❤️</span>档案</a>
+  <a href="settings.html"><span class="tab-icon">⚙️</span>设置</a>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+const ALERT_ID = getQueryParam('id');
+
+const ALERT_TEMPLATES = {
+  fall:    { emoji: '🚨', title: '跌倒告警',  zone: 3, type: '跌倒检测', suggestions: '• 立即电话联系老人确认状况<br>• 若无响应，联系邻居或亲属上门<br>• 紧急情况拨打 120 急救' },
+  breath:  { emoji: '⚠️', title: '呼吸异常',  zone: 2, type: '呼吸异常', suggestions: '• 检查老人是否处于睡眠状态<br>• 远程语音呼唤确认<br>• 持续观察 5 分钟' },
+  silent:  { emoji: '🔇', title: '长时间静止', zone: 3, type: '静止超时', suggestions: '• 立即确认老人状况<br>• 联系邻居上门查看<br>• 准备紧急救援' },
+  default: { emoji: '🔔', title: '守护告警',  zone: 2, type: '一般告警', suggestions: '• 关注老人状况<br>• 必要时联系老人' },
+};
+
+async function loadAlert() {
+  if (!ALERT_ID) {
+    // 无 ID 时显示最近一条
+    const data = await apiGet('/api/alerts/latest');
+    if (data) renderAlert(data);
+    else renderMockAlert();
+  } else {
+    const data = await apiGet(`/api/alerts/${ALERT_ID}`);
+    if (data) renderAlert(data);
+    else renderMockAlert();
+  }
+}
+
+function renderAlert(a) {
+  const tpl = ALERT_TEMPLATES[a.type] || ALERT_TEMPLATES.default;
+  $('#alertEmoji').textContent = tpl.emoji;
+  $('#alertTitle').textContent = a.title || tpl.title;
+  $('#alertTime').textContent = formatTime(a.ts);
+  $('#alertZone').textContent = `Zone ${a.zone} ${tpl.title}`;
+  $('#alertZone').className = `zone-pill z${a.zone}`;
+  $('#eventType').textContent = tpl.type;
+  $('#eventTime').textContent = formatTime(a.ts);
+  $('#eventDevice').textContent = a.device_id || 'wg-001';
+  $('#eventLocation').textContent = a.location || '客厅';
+  $('#eventActivity').textContent = a.activity ? (a.activity * 100).toFixed(0) + '%' : '--';
+  $('#eventBreath').textContent = a.breath_rate ? a.breath_rate.toFixed(1) + ' 次/分' : '--';
+  $('#suggestions').innerHTML = tpl.suggestions;
+  $('#aiAnalysis').textContent = a.ai_analysis || '基于跌倒冲击特征 + 呼吸频率综合判断，建议立即确认老人状况。';
+  if (a.status === 'resolved') showResolved(a);
+}
+
+function renderMockAlert() {
+  renderAlert({
+    id: 1, type: 'fall', title: '跌倒告警',
+    ts: Date.now() - 180000,
+    zone: 3, device_id: 'wg-001', location: '客厅',
+    activity: 0.92, breath_rate: 22.5,
+    ai_analysis: '检测到剧烈冲击信号（活动强度 92%），随后呼吸频率升高至 22.5 次/分（正常 12-20 次/分），结合病历中"高血压"病史，判定为高危跌倒事件，建议立即处置。',
+    status: 'active',
+  });
+}
+
+function resolveAlert(action) {
+  const map = {
+    safe:      { text: '已确认老人安全', cls: 'resolved' },
+    help:      { text: '已电话联系老人', cls: 'pending' },
+    emergency: { text: '已拨打 120 急救', cls: 'active' },
+    false:     { text: '标记为误报', cls: 'resolved' },
+  };
+  const r = map[action];
+  if (!r) return;
+  apiPost(`/api/alerts/${ALERT_ID || 1}/resolve`, { action });
+  showResolved({ resolve_text: r.text, resolve_action: action, resolve_ts: Date.now() });
+  showToast(r.text, action === 'emergency' ? 'error' : 'success');
+}
+
+function showResolved(a) {
+  $('#actionPanel').style.display = 'none';
+  $('#resolvePanel').style.display = 'block';
+  $('#resolveLog').innerHTML = `
+    ✓ ${a.resolve_text || '已处置'}<br>
+    处置时间：${formatTime(a.resolve_ts || Date.now())}
+  `;
+}
+
+loadAlert();
+</script>
+</body>
+</html>

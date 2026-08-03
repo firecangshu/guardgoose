@@ -1,0 +1,9 @@
+{
+  "name": "信号测试·呼吸均匀（平稳呼吸）",
+  "zone": "living",
+  "description": "模拟老人静坐时呼吸均匀，呼吸频率稳定在14-17次/分",
+  "speed": 10,
+  "segments": [
+    { "label": "静息·呼吸均匀", "duration_s": 60, "pattern": "still", "low": 0.01, "high": 0.04, "br_low": 14, "br_high": 17, "br_state": "normal" }
+  ]
+}

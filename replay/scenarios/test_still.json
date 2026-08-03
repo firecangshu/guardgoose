@@ -1,0 +1,9 @@
+{
+  "name": "信号测试·静止状态（静坐/睡眠）",
+  "zone": "living",
+  "description": "模拟老人完全静止，只有呼吸微动，活动强度接近0，呼吸平稳",
+  "speed": 10,
+  "segments": [
+    { "label": "静坐（呼吸平稳）", "duration_s": 60, "pattern": "still", "low": 0.01, "high": 0.05, "br_low": 14, "br_high": 17 }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "信号测试·正常运动（日常走动）",
+  "zone": "living",
+  "description": "模拟老人在家正常走动，活动强度中等，呼吸略快",
+  "speed": 10,
+  "segments": [
+    { "label": "正常走动", "duration_s": 60, "pattern": "active", "low": 0.3, "high": 0.65, "br_low": 15, "br_high": 19 }
+  ]
+}

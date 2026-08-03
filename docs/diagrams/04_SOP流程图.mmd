@@ -1,0 +1,51 @@
+flowchart TD
+    START(["🛰️ ESP32 检测到<br/>活动强度尖峰"]) --> DETECT{"跌倒检测<br/>intensity > 0.8?"}
+    DETECT -->|"否"| NORMAL["🟢 Zone 0<br/>正常活动"]
+    DETECT -->|"是"| OBSERVE["⏱️ 10秒观察窗<br/>检测持续静止"]
+    OBSERVE --> STILL{"是否持续<br/>静止 10s?"}
+    STILL -->|"否"| NORMAL
+    STILL -->|"是"| BREATH_CHECK{"🫁 呼吸状态<br/>检查"}
+
+    BREATH_CHECK -->|"呼吸正常<br/>16-20次/分"| ZONE2["🟠 Zone 2<br/>语音确证"]
+    BREATH_CHECK -->|"呼吸异常<br/>>20或<12次/分"| ZONE3["🔴 Zone 3<br/>立即告警"]
+    BREATH_CHECK -->|"呼吸消失<br/><3次/分"| ZONE4["⚫ Zone 4<br/>紧急救援"]
+
+    ZONE2 --> TTS["🔊 TTS 朗读<br/>您还好吗？"]
+    TTS --> WAIT{"⏰ 90秒等待<br/>老人回应"}
+    WAIT -->|"我没事"| CLEAR["🟢 Zone 0<br/>解除告警"]
+    WAIT -->|"我需要帮助"| ZONE3
+    WAIT -->|"超时无回应"| ZONE3
+
+    ZONE3 --> NOTIFY["📱 子女端红色告警<br/>+ 声音提醒"]
+    NOTIFY --> CONFIRM{"⏰ 子女 5 分钟<br/>内确认?"}
+    CONFIRM -->|"已处理"| CLEAR
+    CONFIRM -->|"超时未确认"| ZONE4
+    CONFIRM -->|"高血压病史<br/>10分钟超时"| ZONE4
+
+    ZONE4 --> DIAL["📞 一键拨打 120<br/>+ 紧急联系人"]
+    DIAL --> RESCUE["🚑 紧急救援流程<br/>持续监测呼吸"]
+    RESCUE --> RECOVER{"呼吸恢复?"}
+    RECOVER -->|"是"| ZONE3_DOWNGRADE["🔴 Zone 3<br/>告警不解除"]
+    RECOVER -->|"否"| CONTINUE["⏳ 持续监测<br/>等待救援"]
+    CONTINUE --> RESCUE
+
+    ZONE3_DOWNGRADE --> MANUAL_CLEAR{"子女手动<br/>解除?"}
+    MANUAL_CLEAR -->|"是"| CLEAR
+    MANUAL_CLEAR -->|"否"| ZONE3_DOWNGRADE
+
+    CLEAR --> END_NODE(["✅ 事件结束<br/>归档 SQLite"])
+    NORMAL --> END_NODE
+
+    style START fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style NORMAL fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style CLEAR fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style ZONE2 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style TTS fill:#3a2a1a,stroke:#fbbf24,color:#e8ecf4
+    style ZONE3 fill:#3a1a1a,stroke:#ef4444,color:#e8ecf4
+    style NOTIFY fill:#3a1a1a,stroke:#f87171,color:#e8ecf4
+    style ZONE3_DOWNGRADE fill:#3a1a1a,stroke:#ef4444,color:#e8ecf4
+    style ZONE4 fill:#1a1a1a,stroke:#6b7280,color:#e8ecf4
+    style DIAL fill:#1a1a1a,stroke:#9ca3af,color:#e8ecf4
+    style RESCUE fill:#1a1a1a,stroke:#9ca3af,color:#e8ecf4
+    style CONTINUE fill:#1a1a1a,stroke:#6b7280,color:#e8ecf4
+    style END_NODE fill:#1a3a2a,stroke:#10b981,color:#e8ecf4

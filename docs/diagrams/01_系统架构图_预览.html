@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>护院鹅 · 系统架构图预览</title>
+<script src="https://viewer.diagrams.net/js/viewer-static.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    padding: 20px;
+    background: #0f1420;
+    color: #e8ecf4;
+    font-family: -apple-system, "Microsoft YaHei", sans-serif;
+    text-align: center;
+  }
+  h1 {
+    color: #60a5fa;
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+  .info {
+    color: #94a3b8;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .toolbar {
+    margin: 16px 0;
+  }
+  .toolbar a {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #1e293b;
+    color: #93c5fd;
+    text-decoration: none;
+    border-radius: 6px;
+    border: 1px solid #3b82f6;
+    margin: 0 8px;
+    font-size: 13px;
+  }
+  .toolbar a:hover {
+    background: #1e3a5f;
+  }
+  .mxgraph {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    display: inline-block;
+    max-width: 100%;
+    overflow: auto;
+  }
+</style>
+</head>
+<body>
+<h1>护院鹅 · 系统总体架构图</h1>
+<p class="info">WiFi CSI 居家安全守护系统 · 四层架构（drawio 格式预览）</p>
+<div class="toolbar">
+  <a href="01_系统架构图.drawio" download>下载 .drawio 源文件</a>
+  <a href="https://app.diagrams.net" target="_blank">在线 drawio 编辑器</a>
+</div>
+<div class="mxgraph" style="background:transparent;">
+  <div style="width:100%;">
+    <textarea disabled="disabled" style="width:100%;height:100%;display:none;">&lt;mxfile host=&quot;app.diagrams.net&quot; modified=&quot;2026-08-03T10:30:00.000Z&quot; agent=&quot;护院鹅架构生成器&quot; version=&quot;29.0.3&quot; type=&quot;device&quot;&gt;
+  &lt;diagram name=&quot;系统架构图&quot; id=&quot;arch_sys&quot;&gt;
+    &lt;mxGraphModel dx=&quot;1400&quot; dy=&quot;820&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1400&quot; pageHeight=&quot;820&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;
+      &lt;root&gt;
+        &lt;mxCell id=&quot;0&quot; /&gt;
+        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot; /&gt;
+
+        &lt;!-- ========== 标题 ========== --&gt;
+        &lt;mxCell id=&quot;title&quot; value=&quot;护院鹅 · 系统总体架构图（四层架构）&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#e8ecf4;fontSize=22;fontStyle=1;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;350&quot; y=&quot;780&quot; width=&quot;700&quot; height=&quot;40&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 交互层容器（顶部·橙色） ========== --&gt;
+        &lt;mxCell id=&quot;layer_interaction&quot; value=&quot;📱 交互层 · 子女端（Children End）&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#3a2a1a;strokeColor=#f59e0b;strokeWidth=2;fontColor=#fbbf24;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;250&quot; y=&quot;20&quot; width=&quot;950&quot; height=&quot;160&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;ws&quot; value=&quot;🔌 WebSocket&amp;#10;实时推送&amp;#10;自动重连+心跳&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#f59e0b;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;300&quot; y=&quot;60&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;web&quot; value=&quot;🌐 Web SPA&amp;#10;浏览器访问&amp;#10;原生JS+CSS变量&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#f59e0b;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;540&quot; y=&quot;60&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;tts&quot; value=&quot;🔊 TTS 朗读&amp;#10;语音确证&amp;#10;您还好吗？&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#f59e0b;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;780&quot; y=&quot;60&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;alert&quot; value=&quot;🚨 告警通知&amp;#10;分级推送&amp;#10;黄/橙/红/黑&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#f59e0b;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1020&quot; y=&quot;60&quot; width=&quot;160&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 认知层容器（紫色） ========== --&gt;
+        &lt;mxCell id=&quot;layer_cognitive&quot; value=&quot;🧠 认知层 · AI 决策（Cognitive Layer · Qwen + Rules）&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#2a1a3a;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#c4b5fd;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;150&quot; y=&quot;220&quot; width=&quot;1150&quot; height=&quot;160&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;qwen&quot; value=&quot;🤖 Qwen-plus&amp;#10;医学推理引擎&amp;#10;DashScope API&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;200&quot; y=&quot;260&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;rule&quot; value=&quot;📜 规则引擎&amp;#10;降级保底&amp;#10;18条规则&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;420&quot; y=&quot;260&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;medical&quot; value=&quot;💊 病历个性化&amp;#10;8种病史策略&amp;#10;高血压/心梗/...&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;640&quot; y=&quot;260&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;voice&quot; value=&quot;🎙️ 语音确证&amp;#10;Zone 2 会话&amp;#10;90s倒计时&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;860&quot; y=&quot;260&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;guard&quot; value=&quot;🛡️ 护家模式&amp;#10;防盗监测&amp;#10;入侵告警&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1080&quot; y=&quot;260&quot; width=&quot;180&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 边缘层容器（蓝色） ========== --&gt;
+        &lt;mxCell id=&quot;layer_edge&quot; value=&quot;🖥️ 边缘层 · 本地服务器（Edge Layer · FastAPI + SQLite）&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#1a2a3a;strokeColor=#3b82f6;strokeWidth=2;fontColor=#93c5fd;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;150&quot; y=&quot;420&quot; width=&quot;1150&quot; height=&quot;160&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;ingest&quot; value=&quot;📥 数据接入&amp;#10;POST /ingest/sample&amp;#10;HTTP/MQTT&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#3b82f6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;200&quot; y=&quot;460&quot; width=&quot;200&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;act&quot; value=&quot;🏃 活动强度&amp;#10;方差+能量计算&amp;#10;跌倒尖峰检测&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#3b82f6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;440&quot; y=&quot;460&quot; width=&quot;200&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;breath&quot; value=&quot;🫁 呼吸提取&amp;#10;FFT+带通滤波&amp;#10;0.15~0.5Hz&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#3b82f6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;680&quot; y=&quot;460&quot; width=&quot;200&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;sm&quot; value=&quot;⚙️ 状态机&amp;#10;六区六级判定&amp;#10;Zone -1~4&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#3b82f6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;920&quot; y=&quot;460&quot; width=&quot;200&quot; height=&quot;100&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 感知层容器（绿色·底部） ========== --&gt;
+        &lt;mxCell id=&quot;layer_sense&quot; value=&quot;📡 感知层 · ESP32 硬件（Sensing Layer · WiFi CSI）&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#1a3a2a;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;350&quot; y=&quot;620&quot; width=&quot;750&quot; height=&quot;140&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;tx&quot; value=&quot;📡 ESP32 发射端&amp;#10;TX · 发送 CSI 探测帧&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#10b981;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;430&quot; y=&quot;660&quot; width=&quot;240&quot; height=&quot;80&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;rx&quot; value=&quot;📡 ESP32 接收端&amp;#10;RX · 采集 CSI 数据&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#10b981;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;770&quot; y=&quot;660&quot; width=&quot;240&quot; height=&quot;80&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 连线区 ========== --&gt;
+        &lt;!-- 感知层内部：TX → RX --&gt;
+        &lt;mxCell id=&quot;e1&quot; value=&quot;WiFi 信号穿过人体&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;tx&quot; target=&quot;rx&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- 感知层 → 边缘层：RX → 数据接入 --&gt;
+        &lt;mxCell id=&quot;e2&quot; value=&quot;原始 CSI 数据&amp;#10;HTTP/MQTT&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;rx&quot; target=&quot;ingest&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- 边缘层内部 --&gt;
+        &lt;mxCell id=&quot;e3&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;ingest&quot; target=&quot;act&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e4&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;ingest&quot; target=&quot;breath&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e5&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;act&quot; target=&quot;sm&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e6&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;breath&quot; target=&quot;sm&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- 边缘层 → 认知层 --&gt;
+        &lt;mxCell id=&quot;e7&quot; value=&quot;事件流&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sm&quot; target=&quot;qwen&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e8&quot; value=&quot;事件流&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.85;exitY=0;exitDx=0;exitDy=0;entryX=0.3;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sm&quot; target=&quot;rule&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e9&quot; value=&quot;语音确证触发&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.9;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sm&quot; target=&quot;voice&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- 认知层内部 --&gt;
+        &lt;mxCell id=&quot;e10&quot; value=&quot;优先调用 / 超时降级&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#c4b5fd;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#1a1a2e;startArrow=classic;startFill=1;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;qwen&quot; target=&quot;rule&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e11&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8b5cf6;strokeWidth=2;endArrow=classic;endFill=1;dashed=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;medical&quot; target=&quot;qwen&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e12&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8b5cf6;strokeWidth=2;endArrow=classic;endFill=1;dashed=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;medical&quot; target=&quot;rule&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- 认知层 → 交互层 --&gt;
+        &lt;mxCell id=&quot;e13&quot; value=&quot;告警决策&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.3;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;qwen&quot; target=&quot;ws&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e14&quot; value=&quot;告警决策&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.4;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;rule&quot; target=&quot;ws&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e15&quot; value=&quot;确证结果&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.6;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;voice&quot; target=&quot;ws&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e16&quot; value=&quot;入侵告警&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontColor=#cbd5e1;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;endArrow=classic;endFill=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.7;entryY=1;entryDx=0;entryDy=0;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;guard&quot; target=&quot;ws&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- 交互层内部 --&gt;
+        &lt;mxCell id=&quot;e17&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#f59e0b;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;ws&quot; target=&quot;web&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e18&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#f59e0b;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;web&quot; target=&quot;tts&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e19&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#f59e0b;strokeWidth=2;endArrow=classic;endFill=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;web&quot; target=&quot;alert&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 图例 ========== --&gt;
+        &lt;mxCell id=&quot;legend_box&quot; value=&quot;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#2d3748;strokeWidth=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;20&quot; y=&quot;20&quot; width=&quot;200&quot; height=&quot;180&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_title&quot; value=&quot;📊 图例&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#e8ecf4;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;20&quot; y=&quot;25&quot; width=&quot;200&quot; height=&quot;30&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_l1&quot; value=&quot;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a3a2a;strokeColor=#10b981;strokeWidth=2;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;35&quot; y=&quot;65&quot; width=&quot;20&quot; height=&quot;14&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_t1&quot; value=&quot;感知层（硬件）&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;60&quot; y=&quot;62&quot; width=&quot;150&quot; height=&quot;20&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_l2&quot; value=&quot;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1a2a3a;strokeColor=#3b82f6;strokeWidth=2;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;35&quot; y=&quot;95&quot; width=&quot;20&quot; height=&quot;14&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_t2&quot; value=&quot;边缘层（本地服务）&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;60&quot; y=&quot;92&quot; width=&quot;150&quot; height=&quot;20&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_l3&quot; value=&quot;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#2a1a3a;strokeColor=#8b5cf6;strokeWidth=2;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;35&quot; y=&quot;125&quot; width=&quot;20&quot; height=&quot;14&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_t3&quot; value=&quot;认知层（AI决策）&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;60&quot; y=&quot;122&quot; width=&quot;150&quot; height=&quot;20&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_l4&quot; value=&quot;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#3a2a1a;strokeColor=#f59e0b;strokeWidth=2;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;35&quot; y=&quot;155&quot; width=&quot;20&quot; height=&quot;14&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;legend_t4&quot; value=&quot;交互层（子女端）&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;60&quot; y=&quot;152&quot; width=&quot;150&quot; height=&quot;20&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ========== 版本信息 ========== --&gt;
+        &lt;mxCell id=&quot;version_info&quot; value=&quot;版本：v1.0 | 日期：2026-08-03 | 工具：drawio 29.0.3&quot; style=&quot;text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#64748b;fontSize=11;fontFamily=Microsoft YaHei;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1100&quot; y=&quot;780&quot; width=&quot;280&quot; height=&quot;30&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+      &lt;/root&gt;
+    &lt;/mxGraphModel&gt;
+  &lt;/diagram&gt;
+&lt;/mxfile&gt;
+</textarea>
+  </div>
+</div>
+<p class="info" style="margin-top:20px;">
+  提示：如需编辑，请用 drawio 桌面版或访问 app.diagrams.net 在线打开 .drawio 文件
+</p>
+</body>
+</html>

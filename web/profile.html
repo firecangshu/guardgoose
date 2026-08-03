@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护院鹅 · 健康档案</title>
+<link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <h1>❤️ 健康档案</h1>
+    <span style="width:32px;"></span>
+  </div>
+
+  <!-- 基本信息 -->
+  <div class="card">
+    <div class="lbl"><span>基本信息</span></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">姓名</label>
+        <input type="text" id="pfName" class="form-input" value="妈妈" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label class="form-label">年龄</label>
+        <input type="number" id="pfAge" class="form-input" value="75" min="0" max="130">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">起床时间</label>
+        <input type="time" id="pfWake" class="form-input" value="06:30">
+      </div>
+      <div class="form-group">
+        <label class="form-label">就寝时间</label>
+        <input type="time" id="pfSleep" class="form-input" value="21:30">
+      </div>
+    </div>
+  </div>
+
+  <!-- 既往病史（8种） -->
+  <div class="card">
+    <div class="lbl"><span>既往病史</span><span class="text-sm text-mute">影响告警分级</span></div>
+    <div class="chk-group" id="pfDiseases">
+      <label class="chk-item"><input type="checkbox" value="hypertension" checked>高血压</label>
+      <label class="chk-item"><input type="checkbox" value="heart">心脏病</label>
+      <label class="chk-item"><input type="checkbox" value="epilepsy">癫痫</label>
+      <label class="chk-item"><input type="checkbox" value="diabetes">糖尿病</label>
+      <label class="chk-item"><input type="checkbox" value="parkinson">帕金森</label>
+      <label class="chk-item"><input type="checkbox" value="alzheimer">阿尔茨海默</label>
+      <label class="chk-item"><input type="checkbox" value="asthma">哮喘</label>
+      <label class="chk-item"><input type="checkbox" value="fall_history" checked>跌倒史</label>
+    </div>
+  </div>
+
+  <!-- 用药情况（8种） -->
+  <div class="card">
+    <div class="lbl"><span>用药情况</span><span class="text-sm text-mute">影响 AI 分析</span></div>
+    <div class="chk-group" id="pfDrugs">
+      <label class="chk-item"><input type="checkbox" value="antihypertensive" checked>降压药</label>
+      <label class="chk-item"><input type="checkbox" value="anticoagulant">抗凝药</label>
+      <label class="chk-item"><input type="checkbox" value="hypoglycemic">降糖药</label>
+      <label class="chk-item"><input type="checkbox" value="sedative">镇静剂</label>
+      <label class="chk-item"><input type="checkbox" value="antidepressant">抗抑郁药</label>
+      <label class="chk-item"><input type="checkbox" value="diuretic">利尿剂</label>
+      <label class="chk-item"><input type="checkbox" value="vasodilator">血管扩张剂</label>
+      <label class="chk-item"><input type="checkbox" value="beta_blocker" checked>β受体阻滞剂</label>
+    </div>
+  </div>
+
+  <!-- 跌倒与晕厥史 -->
+  <div class="card">
+    <div class="lbl"><span>跌倒与晕厥史</span></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">近一年跌倒次数</label>
+        <input type="number" id="pfFallCount" class="form-input" value="2" min="0" max="999">
+      </div>
+      <div class="form-group">
+        <label class="form-label">近一年晕厥次数</label>
+        <input type="number" id="pfSyncopeCount" class="form-input" value="0" min="0" max="999">
+      </div>
+    </div>
+  </div>
+
+  <!-- 紧急联系人 -->
+  <div class="card">
+    <div class="lbl"><span>紧急联系人</span></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">姓名</label>
+        <input type="text" id="pfContactName" class="form-input" value="儿子" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label class="form-label">电话</label>
+        <input type="tel" id="pfContactPhone" class="form-input" value="13800138000">
+      </div>
+    </div>
+  </div>
+
+  <!-- 保存按钮 -->
+  <button class="save-btn" id="saveProfileBtn" onclick="saveProfile()">保 存 健 康 档 案</button>
+  <div class="text-center text-sm text-mute mt-3" style="padding:12px;">
+    档案数据本地存储，仅用于 AI 个性化分析
+  </div>
+</div>
+
+<div class="tabbar">
+  <a href="home.html"><span class="tab-icon">🏠</span>首页</a>
+  <a href="events.html"><span class="tab-icon">📋</span>事件</a>
+  <a href="profile.html" class="active"><span class="tab-icon">❤️</span>档案</a>
+  <a href="settings.html"><span class="tab-icon">⚙️</span>设置</a>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+// 加载档案
+async function loadProfile() {
+  const data = await apiGet('/api/profile');
+  if (!data) {
+    // 使用 localStorage 备用
+    const local = JSON.parse(localStorage.getItem('wg-profile') || '{}');
+    if (local.name) fillForm(local);
+    return;
+  }
+  fillForm(data);
+}
+
+function fillForm(p) {
+  if (p.name) $('#pfName').value = p.name;
+  if (p.age) $('#pfAge').value = p.age;
+  if (p.wake_time) $('#pfWake').value = p.wake_time;
+  if (p.sleep_time) $('#pfSleep').value = p.sleep_time;
+  if (p.fall_count !== undefined) $('#pfFallCount').value = p.fall_count;
+  if (p.syncope_count !== undefined) $('#pfSyncopeCount').value = p.syncope_count;
+  if (p.contact_name) $('#pfContactName').value = p.contact_name;
+  if (p.contact_phone) $('#pfContactPhone').value = p.contact_phone;
+  // 病史
+  if (p.diseases) {
+    $$('#pfDiseases input').forEach(c => {
+      c.checked = p.diseases.includes(c.value);
+      c.parentElement.classList.toggle('active', c.checked);
+    });
+  }
+  // 用药
+  if (p.drugs) {
+    $$('#pfDrugs input').forEach(c => {
+      c.checked = p.drugs.includes(c.value);
+      c.parentElement.classList.toggle('active', c.checked);
+    });
+  }
+}
+
+// 复选框样式联动
+$$('.chk-item input').forEach(c => {
+  c.addEventListener('change', () => {
+    c.parentElement.classList.toggle('active', c.checked);
+  });
+});
+
+// 保存档案
+async function saveProfile() {
+  const btn = $('#saveProfileBtn');
+  btn.classList.add('saving');
+  btn.textContent = '保存中…';
+  const profile = {
+    name: $('#pfName').value,
+    age: parseInt($('#pfAge').value),
+    wake_time: $('#pfWake').value,
+    sleep_time: $('#pfSleep').value,
+    diseases: [...$$('#pfDiseases input:checked')].map(c => c.value),
+    drugs: [...$$('#pfDrugs input:checked')].map(c => c.value),
+    fall_count: parseInt($('#pfFallCount').value),
+    syncope_count: parseInt($('#pfSyncopeCount').value),
+    contact_name: $('#pfContactName').value,
+    contact_phone: $('#pfContactPhone').value,
+  };
+  // 本地备份
+  localStorage.setItem('wg-profile', JSON.stringify(profile));
+  // 提交后端
+  const res = await apiPost('/api/profile', profile);
+  btn.classList.remove('saving');
+  btn.textContent = '保 存 健 康 档 案';
+  showToast(res ? '档案已保存' : '已保存到本地（后端未连接）', res ? 'success' : 'info');
+}
+
+loadProfile();
+</script>
+</body>
+</html>

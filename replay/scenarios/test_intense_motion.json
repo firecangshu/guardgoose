@@ -1,0 +1,11 @@
+{
+  "name": "信号测试·剧烈运动（跌倒瞬间）",
+  "zone": "living",
+  "description": "模拟剧烈动作/跌倒，活动强度飙升至接近1",
+  "speed": 10,
+  "segments": [
+    { "label": "正常走动", "duration_s": 20, "pattern": "active", "low": 0.3, "high": 0.6, "br_low": 15, "br_high": 19 },
+    { "label": "突发剧烈波动", "duration_s": 5, "pattern": "spike", "low": 0.9, "high": 1.0, "br_low": 18, "br_high": 22 },
+    { "label": "倒地后静止", "duration_s": 40, "pattern": "still", "low": 0.01, "high": 0.05, "br_low": 14, "br_high": 18 }
+  ]
+}

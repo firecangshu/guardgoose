@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护院鹅 · 事件时间线</title>
+<link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <h1>📋 事件时间线</h1>
+    <span style="width:32px;"></span>
+  </div>
+
+  <!-- 筛选条 -->
+  <div class="card" style="padding:12px;">
+    <div class="flex gap-2" style="flex-wrap:wrap;">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">全部</button>
+      <button class="filter-btn" data-filter="fall" onclick="setFilter('fall')">跌倒</button>
+      <button class="filter-btn" data-filter="warn" onclick="setFilter('warn')">警告</button>
+      <button class="filter-btn" data-filter="info" onclick="setFilter('info')">活动</button>
+      <button class="filter-btn" data-filter="safe" onclick="setFilter('safe')">安全</button>
+    </div>
+    <div class="flex-between mt-2" style="margin-top:12px;">
+      <select id="dateRange" class="form-select" style="width:auto;flex:1;margin-right:8px;" onchange="loadEvents()">
+        <option value="1">近 24 小时</option>
+        <option value="7" selected>近 7 天</option>
+        <option value="30">近 30 天</option>
+        <option value="90">近 90 天</option>
+      </select>
+      <span class="text-sm text-mute" id="totalCount">0 条</span>
+    </div>
+  </div>
+
+  <!-- 事件列表 -->
+  <div class="event-list" id="eventList">
+    <div class="empty">加载中…</div>
+  </div>
+</div>
+
+<div class="tabbar">
+  <a href="home.html"><span class="tab-icon">🏠</span>首页</a>
+  <a href="events.html" class="active"><span class="tab-icon">📋</span>事件</a>
+  <a href="profile.html"><span class="tab-icon">❤️</span>档案</a>
+  <a href="settings.html"><span class="tab-icon">⚙️</span>设置</a>
+</div>
+
+<style>
+.filter-btn {
+  padding: 6px 14px; border-radius: 999px; font-size: 12px;
+  background: var(--bg-input); color: var(--text-soft);
+  border: 1px solid var(--border); transition: all 0.2s;
+}
+.filter-btn.active { background: var(--accent); color: #062a4a; border-color: var(--accent); }
+</style>
+
+<script src="js/common.js"></script>
+<script>
+let currentFilter = 'all';
+
+function setFilter(f) {
+  currentFilter = f;
+  $$('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  loadEvents();
+}
+
+async function loadEvents() {
+  const days = $('#dateRange').value;
+  const data = await apiGet(`/api/events?days=${days}&type=${currentFilter}&limit=100`);
+  const list = $('#eventList');
+  if (!data || !data.items || data.items.length === 0) {
+    list.innerHTML = '<div class="empty">暂无事件记录</div>';
+    $('#totalCount').textContent = '0 条';
+    return;
+  }
+  $('#totalCount').textContent = `${data.items.length} 条`;
+  list.innerHTML = data.items.map(e => `
+    <div class="event-item t-${e.type}" onclick="navigateTo('alert', { id: ${e.id} })">
+      <div class="event-head">
+        <span class="event-title">${e.title}</span>
+        <span class="event-time">${formatTime(e.ts)}</span>
+      </div>
+      <div class="event-desc">${e.desc}</div>
+      <span class="event-status ${e.status}">${e.status === 'resolved' ? '✓ 已处置' : e.status === 'pending' ? '⏳ 待处理' : '🔴 进行中'}</span>
+    </div>
+  `).join('');
+}
+
+function onNewEvent(e) { loadEvents(); }
+
+loadEvents();
+</script>
+</body>
+</html>

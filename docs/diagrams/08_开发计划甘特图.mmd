@@ -1,0 +1,31 @@
+gantt
+    title 护院鹅 · 开发计划（四阶段路线图）
+    dateFormat YYYY-MM-DD
+    axisFormat %m/%d
+
+    section 第一阶段：前端UI
+    项目脚手架搭建        :a1, 2026-08-03, 2d
+    双主题CSS变量体系      :a2, after a1, 1d
+    首页守护仪表盘          :a3, after a2, 3d
+    事件时间线页面          :a4, after a3, 2d
+    语音确证交互            :a5, after a3, 1d
+    健康档案页面            :a6, after a4, 2d
+    设置页面                :a7, after a6, 1d
+    告警详情页面            :a8, after a5, 1d
+
+    section 第二阶段：后端增强
+    API规范化重构           :b1, after a2, 2d
+    WebSocket断线重连       :b2, after b1, 1d
+    历史数据统计API         :b3, after b2, 2d
+    多设备支持              :b4, after b3, 2d
+
+    section 第三阶段：硬件对接
+    CSI数据协议定义         :c1, after b2, 2d
+    活动强度提取算法        :c2, after c1, 3d
+    呼吸频率提取算法        :c3, after c1, 3d
+    设备在线检测            :c4, after c2, 1d
+
+    section 第四阶段：集成测试
+    端到端联调              :d1, after c4, 3d
+    场景回归测试            :d2, after d1, 2d
+    性能测试                :d3, after d2, 2d

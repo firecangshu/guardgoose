@@ -1,0 +1,14 @@
+<mxfile host="app.diagrams.net" version="29.0.3" type="device">
+  <diagram name="版本演进路线图" id="roadmap">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="护院鹅 · 版本演进路线图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontColor=#e8ecf4;fontSize=22;fontStyle=1;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="300" y="820" width="900" height="40" as="geometry" /></mxCell>
+        <mxCell id="note" value="💡 解决 P2 遗漏 #17：v1.0→v1.1→v2.0→v3.0 完整演进路径" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#10b981;fontSize=12;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="100" y="780" width="1400" height="30" as="geometry" /></mxCell>
+        <mxCell id="ref" value="📐 完整图请查看同名 .mmd 源文件或 _预览.png&#10;drawio 桌面版支持直接导入 .mmd 文件" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#10b981;strokeWidth=2;fontColor=#e8ecf4;fontSize=13;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1"><mxGeometry x="500" y="350" width="600" height="100" as="geometry" /></mxCell>
+        <mxCell id="ver" value="版本：v1.0 | 日期：2026-08-03" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;fontColor=#64748b;fontSize=11;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="1100" y="820" width="400" height="30" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

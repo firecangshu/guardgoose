@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护院鹅 · 设置</title>
+<link rel="stylesheet" href="css/common.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a href="home.html" class="back">‹</a>
+    <h1>⚙️ 设置</h1>
+    <span style="width:32px;"></span>
+  </div>
+
+  <!-- 主题切换 -->
+  <div class="card">
+    <div class="lbl"><span>外观</span></div>
+    <div class="flex-between mt-2" style="padding:8px 0;">
+      <span>主题模式</span>
+      <button id="themeToggleBtn" class="save-btn" style="width:auto;padding:6px 16px;font-size:13px;" onclick="toggleTheme()">🌙 暗色</button>
+    </div>
+  </div>
+
+  <!-- 设备管理 -->
+  <div class="card">
+    <div class="lbl"><span>设备管理</span><span class="text-sm text-mute" id="deviceCount">0 台在线</span></div>
+    <div id="deviceList" style="margin-top:8px;">
+      <div class="empty">加载中…</div>
+    </div>
+    <button class="save-btn" style="background:var(--bg-input);color:var(--accent);margin-top:12px;" onclick="addDevice()">+ 添加新设备</button>
+  </div>
+
+  <!-- 通知设置 -->
+  <div class="card">
+    <div class="lbl"><span>通知设置</span></div>
+    <div class="flex-between mt-2" style="padding:10px 0;border-bottom:1px solid var(--divider);">
+      <span>跌倒告警</span>
+      <label class="switch"><input type="checkbox" id="ntFall" checked><span class="slider"></span></label>
+    </div>
+    <div class="flex-between mt-2" style="padding:10px 0;border-bottom:1px solid var(--divider);">
+      <span>呼吸异常</span>
+      <label class="switch"><input type="checkbox" id="ntBreath" checked><span class="slider"></span></label>
+    </div>
+    <div class="flex-between mt-2" style="padding:10px 0;border-bottom:1px solid var(--divider);">
+      <span>长时间静止</span>
+      <label class="switch"><input type="checkbox" id="ntSilent" checked><span class="slider"></span></label>
+    </div>
+    <div class="flex-between mt-2" style="padding:10px 0;">
+      <span>每日健康报告</span>
+      <label class="switch"><input type="checkbox" id="ntDaily"><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <!-- 告警阈值 -->
+  <div class="card">
+    <div class="lbl"><span>告警阈值</span></div>
+    <div class="form-group" style="margin-top:8px;">
+      <label class="form-label">语音确证超时（秒）</label>
+      <input type="number" id="thVoiceTimeout" class="form-input" value="90" min="30" max="300">
+    </div>
+    <div class="form-group">
+      <label class="form-label">静止告警阈值（分钟）</label>
+      <input type="number" id="thSilentTimeout" class="form-input" value="30" min="5" max="180">
+    </div>
+    <div class="form-group">
+      <label class="form-label">呼吸异常上限（次/分）</label>
+      <input type="number" id="thBreathHigh" class="form-input" value="25" min="20" max="40">
+    </div>
+  </div>
+
+  <!-- 隐私说明 -->
+  <div class="card">
+    <div class="lbl"><span>🔒 隐私保护</span></div>
+    <div class="text-sm" style="line-height:1.8;color:var(--text-soft);padding:8px 0;">
+      • 原始 CSI 信号仅本地处理，不上云<br>
+      • 仅语义标签（跌倒/呼吸异常）传输到子女端<br>
+      • 健康档案加密存储，仅用于 AI 个性化分析<br>
+      • 无摄像头、无录音、无穿戴设备
+    </div>
+  </div>
+
+  <!-- 关于 -->
+  <div class="card">
+    <div class="lbl"><span>关于</span></div>
+    <div class="flex-between mt-2" style="padding:6px 0;">
+      <span class="text-sm text-mute">版本</span>
+      <span class="text-sm">v1.0.0</span>
+    </div>
+    <div class="flex-between mt-2" style="padding:6px 0;">
+      <span class="text-sm text-mute">技术支持</span>
+      <span class="text-sm">护院鹅团队</span>
+    </div>
+    <div class="flex-between mt-2" style="padding:6px 0;">
+      <span class="text-sm text-mute">专利申请号</span>
+      <span class="text-sm">2026111120531</span>
+    </div>
+  </div>
+
+  <div class="text-center text-sm text-mute" style="padding:20px;">
+    🛡️ 护院鹅 · 守护独居老人安全
+  </div>
+</div>
+
+<div class="tabbar">
+  <a href="home.html"><span class="tab-icon">🏠</span>首页</a>
+  <a href="events.html"><span class="tab-icon">📋</span>事件</a>
+  <a href="profile.html"><span class="tab-icon">❤️</span>档案</a>
+  <a href="settings.html" class="active"><span class="tab-icon">⚙️</span>设置</a>
+</div>
+
+<style>
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { display: none; }
+.slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: var(--bg-input); border-radius: 24px; transition: 0.3s;
+  border: 1px solid var(--border);
+}
+.slider::before {
+  content: ''; position: absolute; height: 18px; width: 18px;
+  left: 3px; top: 2px; background: var(--text-mute); border-radius: 50%;
+  transition: 0.3s;
+}
+.switch input:checked + .slider { background: var(--safe); }
+.switch input:checked + .slider::before { transform: translateX(20px); background: white; }
+</style>
+
+<script src="js/common.js"></script>
+<script>
+// 主题按钮显示
+function updateThemeBtn() {
+  const btn = $('#themeToggleBtn');
+  btn.textContent = WAVEGUARD_STATE.theme === 'dark' ? '🌙 暗色' : '☀️ 亮色';
+}
+updateThemeBtn();
+
+// 加载设备列表
+async function loadDevices() {
+  const data = await apiGet('/api/devices');
+  const list = $('#deviceList');
+  if (!data || !data.items || data.items.length === 0) {
+    list.innerHTML = `
+      <div class="event-item t-info" style="border-left-color:var(--info);">
+        <div class="event-head">
+          <span class="event-title">wg-001（演示设备）</span>
+          <span class="event-status resolved">在线</span>
+        </div>
+        <div class="event-desc">客厅 · ESP32 接收端</div>
+      </div>`;
+    $('#deviceCount').textContent = '1 台在线';
+    return;
+  }
+  $('#deviceCount').textContent = `${data.items.filter(d => d.online).length} 台在线`;
+  list.innerHTML = data.items.map(d => `
+    <div class="event-item t-${d.online ? 'safe' : 'info'}">
+      <div class="event-head">
+        <span class="event-title">${d.id}</span>
+        <span class="event-status ${d.online ? 'resolved' : 'pending'}">${d.online ? '在线' : '离线'}</span>
+      </div>
+      <div class="event-desc">${d.location || '客厅'} · ${d.model || 'ESP32'}</div>
+    </div>
+  `).join('');
+}
+
+function addDevice() {
+  showToast('请扫描设备底部二维码', 'info');
+}
+
+// 加载设置
+async function loadSettings() {
+  const data = await apiGet('/api/settings');
+  if (!data) {
+    const local = JSON.parse(localStorage.getItem('wg-settings') || '{}');
+    if (local.voice_timeout) $('#thVoiceTimeout').value = local.voice_timeout;
+    return;
+  }
+  if (data.voice_timeout) $('#thVoiceTimeout').value = data.voice_timeout;
+  if (data.silent_timeout) $('#thSilentTimeout').value = data.silent_timeout;
+  if (data.breath_high) $('#thBreathHigh').value = data.breath_high;
+  if (data.nt_daily) $('#ntDaily').checked = true;
+}
+
+// 保存设置（输入框失焦时自动保存）
+['thVoiceTimeout','thSilentTimeout','thBreathHigh'].forEach(id => {
+  $('#'+id).addEventListener('change', saveSettings);
+});
+['ntFall','ntBreath','ntSilent','ntDaily'].forEach(id => {
+  $('#'+id).addEventListener('change', saveSettings);
+});
+
+async function saveSettings() {
+  const settings = {
+    voice_timeout: parseInt($('#thVoiceTimeout').value),
+    silent_timeout: parseInt($('#thSilentTimeout').value),
+    breath_high: parseInt($('#thBreathHigh').value),
+    nt_fall: $('#ntFall').checked,
+    nt_breath: $('#ntBreath').checked,
+    nt_silent: $('#ntSilent').checked,
+    nt_daily: $('#ntDaily').checked,
+  };
+  localStorage.setItem('wg-settings', JSON.stringify(settings));
+  await apiPost('/api/settings', settings);
+  showToast('设置已保存', 'success');
+}
+
+loadDevices();
+loadSettings();
+</script>
+</body>
+</html>

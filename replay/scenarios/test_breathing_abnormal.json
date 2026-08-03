@@ -1,0 +1,11 @@
+{
+  "name": "信号测试·呼吸异常（呼吸加快+不整）",
+  "zone": "living",
+  "description": "模拟老人呼吸异常，频率加快且节律不整，活动强度低（静息状态）",
+  "speed": 10,
+  "segments": [
+    { "label": "静息·呼吸正常", "duration_s": 20, "pattern": "still", "low": 0.01, "high": 0.04, "br_low": 14, "br_high": 17, "br_state": "normal" },
+    { "label": "呼吸开始加快", "duration_s": 20, "pattern": "still", "low": 0.02, "high": 0.06, "br_low": 22, "br_high": 28, "br_state": "elevated" },
+    { "label": "呼吸节律不整", "duration_s": 20, "pattern": "still", "low": 0.02, "high": 0.06, "br_low": 10, "br_high": 30, "br_state": "irregular" }
+  ]
+}

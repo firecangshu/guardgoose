@@ -1,0 +1,102 @@
+graph TB
+    subgraph 前端["📱 前端 · Web SPA（子女端浏览器）"]
+        subgraph App["App 根组件"]
+            ROUTER["路由管理器<br/>Hash Router"]
+            THEME["主题切换<br/>亮色 / 暗色"]
+            WS_CONN["WebSocket 连接<br/>自动重连 + 心跳"]
+        end
+        subgraph Pages["📄 页面视图（5页）"]
+            HOME["🏠 首页<br/>守护仪表盘"]
+            TIMELINE["📋 事件时间线"]
+            HEALTH["💊 健康档案"]
+            SETTINGS["⚙️ 设置"]
+            ALERT_DETAIL["🚨 告警详情"]
+        end
+        subgraph Components["🧩 通用组件（10个）"]
+            STATUS_CARD["守护状态大卡<br/>Zone颜色+emoji"]
+            ZONE_BAR["Zone 药丸栏<br/>0~4分级"]
+            ACTIVITY_GAUGE["活动强度仪表<br/>进度条+火花线"]
+            BREATH_MONITOR["呼吸监测卡<br/>频率+状态"]
+            EVENT_LIST["事件列表<br/>14种图标"]
+            ALERT_LIST["告警列表<br/>三级高亮"]
+            VOICE_PANEL["语音确证面板<br/>TTS+倒计时"]
+            GUARD_SWITCH["护家模式开关<br/>护家/访客"]
+            PROFILE_FORM["健康档案表单<br/>病历+用药"]
+            THEME_TOGGLE["主题切换按钮"]
+        end
+    end
+
+    subgraph 后端["🖥️ 后端 · FastAPI（边缘服务器）"]
+        subgraph API["🚪 API 入口"]
+            API_ROUTE["FastAPI 路由<br/>14 个端点"]
+            WSS["WebSocket<br/>连接管理器"]
+        end
+        subgraph Core["⚙️ 核心引擎"]
+            SM["StateTracker<br/>状态机"]
+            GD["Guardian<br/>告警引擎"]
+            VP["VoiceConfirm<br/>语音确证"]
+        end
+        subgraph Data["💾 数据层"]
+            DB["SQLite<br/>events + alerts"]
+            MED["MedicalProfile<br/>病历管理"]
+            CFG["Config<br/>全局配置"]
+        end
+        subgraph External["🌐 外部服务"]
+            QWEN["Qwen-plus API<br/>医学推理"]
+            HW["ESP32 硬件<br/>CSI 数据源"]
+        end
+    end
+
+    ROUTER --> HOME
+    ROUTER --> TIMELINE
+    ROUTER --> HEALTH
+    ROUTER --> SETTINGS
+    ROUTER --> ALERT_DETAIL
+
+    HOME --> STATUS_CARD
+    HOME --> ZONE_BAR
+    HOME --> ACTIVITY_GAUGE
+    HOME --> BREATH_MONITOR
+    HOME --> VOICE_PANEL
+    HOME --> GUARD_SWITCH
+
+    TIMELINE --> EVENT_LIST
+    TIMELINE --> ALERT_LIST
+    HEALTH --> PROFILE_FORM
+    SETTINGS --> THEME_TOGGLE
+    SETTINGS --> GUARD_SWITCH
+    ALERT_DETAIL --> ALERT_LIST
+
+    WS_CONN -.->|"sample"| ACTIVITY_GAUGE
+    WS_CONN -.->|"sample"| BREATH_MONITOR
+    WS_CONN -.->|"event"| EVENT_LIST
+    WS_CONN -.->|"alert"| ALERT_LIST
+    WS_CONN -.->|"voice_confirm"| VOICE_PANEL
+    WS_CONN -.->|"状态变更"| STATUS_CARD
+    WS_CONN -.->|"zone变更"| ZONE_BAR
+
+    HW -->|"POST /ingest/sample"| API_ROUTE
+    API_ROUTE -->|"活动+呼吸"| SM
+    SM -->|"事件"| GD
+    SM -->|"Zone 2 触发"| VP
+    GD -->|"调用"| QWEN
+    GD -->|"查询病史"| MED
+    GD -->|"生成告警"| DB
+    SM -->|"生成事件"| DB
+    VP -->|"确证结果"| GD
+    API_ROUTE -->|"读写病历"| MED
+    DB -->|"读取"| WSS
+    WSS -.->|"广播"| WS_CONN
+    CFG -.->|"配置"| SM
+    CFG -.->|"配置"| GD
+    CFG -.->|"配置"| VP
+
+    style 前端 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style 后端 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
+    style App fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4
+    style Pages fill:#2a1a3a,stroke:#a78bfa,color:#e8ecf4
+    style Components fill:#2a1a3a,stroke:#c4b5fd,color:#e8ecf4
+    style API fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style Core fill:#1a3a2a,stroke:#34d399,color:#e8ecf4
+    style Data fill:#1a3a2a,stroke:#6ee7b7,color:#e8ecf4
+    style External fill:#1a3a2a,stroke:#a7f3d0,color:#e8ecf4

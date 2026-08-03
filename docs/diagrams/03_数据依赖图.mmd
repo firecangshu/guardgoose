@@ -1,0 +1,57 @@
+graph LR
+    subgraph 感知["📡 感知层"]
+        HW["ESP32 接收端<br/>采集 CSI 矩阵<br/>30子载波 × 3天线"]
+    end
+
+    subgraph 接入["📥 数据接入"]
+        INGEST["POST /ingest/sample<br/>JSON: {intensity, breath, ts}"]
+        VALIDATE["数据校验<br/>异常子载波剔除<br/>相位校正"]
+    end
+
+    subgraph 处理["⚙️ 信号处理"]
+        ACT_CALC["活动强度计算<br/>方差 + 短时能量<br/>输出: 0.0~1.0"]
+        BREATH_CALC["呼吸频率提取<br/>FFT + 带通滤波<br/>0.15~0.5Hz<br/>输出: 次/分"]
+    end
+
+    subgraph 决策["🧠 状态决策"]
+        SM["状态机 StateTracker<br/>输入: (intensity, breath)<br/>输出: Zone级别 + Event"]
+        GD["告警引擎 Guardian<br/>输入: Event<br/>输出: Alert{level, state}"]
+        QWEN["Qwen-plus<br/>输入: 事件上下文 + 病历<br/>输出: 决策JSON"]
+        MED["病历档案<br/>8种病史策略"]
+    end
+
+    subgraph 存储["💾 数据存储"]
+        DB[("SQLite<br/>events表<br/>alerts表")]
+    end
+
+    subgraph 推送["📤 实时推送"]
+        WSS["WebSocket 广播<br/>事件总线模式"]
+    end
+
+    subgraph 展示["📱 子女端展示"]
+        WEB["Web SPA<br/>状态卡 + 波形 + 列表"]
+    end
+
+    HW -->|"原始 CSI 数据<br/>HTTP/MQTT"| INGEST
+    INGEST --> VALIDATE
+    VALIDATE --> ACT_CALC
+    VALIDATE --> BREATH_CALC
+    ACT_CALC -->|"intensity: 0.95"| SM
+    BREATH_CALC -->|"breath: 16次/分"| SM
+    SM -->|"Event{fall_detected}"| GD
+    SM -->|"Event{breath_anomaly}"| GD
+    MED -->|"病史策略"| GD
+    GD -->|"调用推理"| QWEN
+    QWEN -->|"决策结果"| GD
+    GD -->|"Alert{warning}"| DB
+    SM -->|"Event"| DB
+    DB -->|"读取最新"| WSS
+    WSS -.->|"实时推送"| WEB
+
+    style 感知 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style 接入 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
+    style 处理 fill:#1a2a3a,stroke:#60a5fa,color:#e8ecf4
+    style 决策 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4
+    style 存储 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style 推送 fill:#3a2a1a,stroke:#fbbf24,color:#e8ecf4
+    style 展示 fill:#3a2a1a,stroke:#fcd34d,color:#e8ecf4

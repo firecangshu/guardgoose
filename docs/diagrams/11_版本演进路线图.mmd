@@ -1,0 +1,37 @@
+graph LR
+    subgraph v1["🟢 v1.0 MVP（2026 Q3-Q4）"]
+        v1a["跌倒检测<br/>六区六级状态机"]
+        v1b["呼吸监测<br/>FFT + 带通滤波"]
+        v1c["语音确证<br/>Zone 2 闭环"]
+        v1d["子女端 Web SPA<br/>5页面 10组件"]
+        v1e["Qwen-plus 推理<br/>8种病史策略"]
+    end
+
+    subgraph v11["🟡 v1.1 增强版（2027 Q1）"]
+        v11a["护家模式<br/>访客识别+自动关闭"]
+        v11b["多子女端同步<br/>告警去重+合并窗口"]
+        v11c["历史统计<br/>7/30/90天趋势"]
+        v11d["硬件双备份<br/>UPS + 4G fallback"]
+    end
+
+    subgraph v2["🟠 v2.0 多房间扩展（2027 Q2-Q3）"]
+        v2a["多 ESP32 节点<br/>房间ID路由"]
+        v2b["设备在线管理<br/>心跳+自动重连"]
+        v2c["跨房间状态联动<br/>厨房跌倒→客厅告警"]
+        v2d["多老人区分<br/>CSI 指纹识别"]
+    end
+
+    subgraph v3["🔴 v3.0 AI 增强（2027 Q4+）"]
+        v3a["1D-CNN 模型<br/>跌倒 vs 坐下 二分类"]
+        v3b["LSTM 呼吸序列<br/>异常早干预"]
+        v3c["知识图谱<br/>病史+用药+环境联动"]
+        v3d["联邦学习<br/>多家庭模型共享"]
+        v3e["毫米波雷达融合<br/>CSI + mmWave 双模"]
+    end
+
+    v1 --> v11 --> v2 --> v3
+
+    style v1 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style v11 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
+    style v2 fill:#3a1a1a,stroke:#ef4444,color:#e8ecf4
+    style v3 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4

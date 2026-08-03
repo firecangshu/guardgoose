@@ -1,0 +1,32 @@
+gantt
+    title 护院鹅 · 初赛开发时序计划（10天倒排 · 08-03→08-13）
+    dateFormat YYYY-MM-DD
+    axisFormat %m/%d
+
+    section 阶段1 前端UI
+    项目脚手架+双主题CSS    :p1a, 2026-08-03, 1d
+    首页守护仪表盘          :p1b, after p1a, 1d
+    事件时间线+告警详情     :p1c, after p1b, 1d
+    健康档案+设置页         :p1d, after p1c, 1d
+
+    section 阶段2 后端API
+    API响应规范化           :p2a, 2026-08-04, 1d
+    WebSocket断线重连       :p2b, after p2a, 1d
+    历史统计+多设备         :p2c, after p2b, 1d
+    8种病史策略             :p2d, after p2c, 1d
+
+    section 阶段3 硬件对接
+    ESP32数据链路联调       :p3a, 2026-08-06, 1d
+    活动强度+呼吸算法       :p3b, after p3a, 1d
+    6核心场景测试           :p3c, after p3b, 1d
+
+    section 阶段4 集成测试
+    前后端联调              :p4a, 2026-08-09, 1d
+    12场景回归测试          :p4b, after p4a, 1d
+    性能测试                :p4c, after p4b, 1d
+
+    section 阶段5 文档视频
+    项目说明文档v4.0        :p5a, 2026-08-10, 1d
+    演示视频渲染合成        :p5b, after p5a, 1d
+    Gitee仓库整理           :p5c, after p5b, 1d
+    最终提交                :milestone, p5d, 2026-08-13, 1d
