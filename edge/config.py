@@ -45,7 +45,7 @@ ZONE1_STILL_THRESHOLD = 30 * 60  # Zone 1 静止超时（30分钟），升级关
 import os
 QWEN_API_KEY = os.environ.get(
     "DASHSCOPE_API_KEY",
-    "sk-ws-H.ELDDDML.D8i2.MEUCIQDaEEA8N3EZmWOPnsnLhclvrq1t8VwMpOKBGQiEgrymlwIgXKO0bnj4hxeUy5xIyAgf0OTyC-bP5GOc1CF5CDYKNFo"
+    ""  # 请设置环境变量 DASHSCOPE_API_KEY，或在 .env 文件中配置
 )
 QWEN_BASE_URL = "https://ws-0ljjaafcecjv4w59.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
 QWEN_MODEL = "qwen-plus"

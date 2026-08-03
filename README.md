@@ -65,7 +65,7 @@
 ### 安装
 
 ```bash
-git clone https://github.com/你的用户名/waveguard.git
+git clone https://github.com/firecangshu/waveguard.git
 cd waveguard
 pip install -r requirements.txt
 ```
@@ -219,7 +219,7 @@ MIT License
 ## 📧 联系
 
 - 邮箱：15703456@qq.com
-- 项目地址：[GitHub](https://github.com/你的用户名/waveguard)
+- 项目地址：[GitHub](https://github.com/firecangshu/waveguard)
 
 ---
 
