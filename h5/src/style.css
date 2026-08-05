@@ -1,0 +1,55 @@
+/* 护院鹅 · 全局样式 */
+:root {
+  --van-primary-color: #1989fa;
+  --van-success-color: #07c160;
+  --van-danger-color: #ee0a24;
+  --van-warning-color: #ff9f00;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  background: #f7f8fa;
+  color: #323233;
+}
+
+#app {
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+/* 覆盖 Vant 卡片默认样式 */
+.van-card {
+  background: #fff;
+  border-radius: 12px;
+}
+
+.van-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 状态卡片圆角 */
+.van-cell-group--inset {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* 适配移动端 */
+@media (max-width: 375px) {
+  html {
+    font-size: 14px;
+  }
+}

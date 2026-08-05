@@ -1,8 +1,8 @@
 graph TB
-    subgraph 感知层["📡 感知层 · ESP32 硬件"]
+    subgraph 感知层["📡 感知层 · CSI 采集设备"]
         TX["ESP32 发射端<br/>发送 CSI 探测帧"]
         RX["ESP32 接收端<br/>采集 CSI 数据"]
-        TX -->|"WiFi 信号穿过人体"| RX
+        TX -->|"CSI 信号穿过人体"| RX
     end
 
     subgraph 边缘层["🖥️ 边缘层 · 本地服务器"]

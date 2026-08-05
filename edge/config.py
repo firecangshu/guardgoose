@@ -43,11 +43,37 @@ ZONE1_STILL_THRESHOLD = 30 * 60  # Zone 1 静止超时（30分钟），升级关
 
 # ---- Qwen 认知层配置 ----
 import os
+from pathlib import Path
+
+def _load_env_file() -> None:
+    """启动时解析项目根目录 .env 文件（KEY=VALUE，支持 # 注释），
+    仅填充尚未设置的环境变量，不覆盖已有值。"""
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return
+    try:
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+    except OSError:
+        pass
+
+_load_env_file()
+
 QWEN_API_KEY = os.environ.get(
     "DASHSCOPE_API_KEY",
-    ""  # 请设置环境变量 DASHSCOPE_API_KEY，或在 .env 文件中配置
+    ""  # 请设置环境变量 DASHSCOPE_API_KEY，或在项目根目录 .env 文件中配置
 )
-QWEN_BASE_URL = "https://ws-0ljjaafcecjv4w59.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+QWEN_BASE_URL = os.environ.get(
+    "QWEN_BASE_URL",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1",  # 阿里云 DashScope 官方域名
+)
 QWEN_MODEL = "qwen-plus"
 QWEN_ENABLED = True
 QWEN_TIMEOUT_S = 10

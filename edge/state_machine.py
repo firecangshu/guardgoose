@@ -408,6 +408,7 @@ class SampleProcessor:
         self._zone_timer = 0
         self._zone1_check_fired = False
         self._elevated_breathing_accum = 0.0
+        self._still_too_long_fired = False  # 修复：回绿区后久滞告警可再次触发
 
     def _classify_breathing(self, rate: int) -> str:
         """根据呼吸频率自动分类。"""

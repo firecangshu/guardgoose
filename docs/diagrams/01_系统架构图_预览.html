@@ -52,7 +52,7 @@
 </head>
 <body>
 <h1>护院鹅 · 系统总体架构图</h1>
-<p class="info">WiFi CSI 居家安全守护系统 · 四层架构（drawio 格式预览）</p>
+<p class="info">CSI 居家安全守护系统 · 四层架构（drawio 格式预览）</p>
 <div class="toolbar">
   <a href="01_系统架构图.drawio" download>下载 .drawio 源文件</a>
   <a href="https://app.diagrams.net" target="_blank">在线 drawio 编辑器</a>
@@ -126,7 +126,7 @@
         &lt;/mxCell&gt;
 
         &lt;!-- ========== 感知层容器（绿色·底部） ========== --&gt;
-        &lt;mxCell id=&quot;layer_sense&quot; value=&quot;📡 感知层 · ESP32 硬件（Sensing Layer · WiFi CSI）&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#1a3a2a;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;layer_sense&quot; value=&quot;📡 感知层 · CSI 采集设备（Sensing Layer · CSI）&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#1a3a2a;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;350&quot; y=&quot;620&quot; width=&quot;750&quot; height=&quot;140&quot; as=&quot;geometry&quot; /&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;tx&quot; value=&quot;📡 ESP32 发射端&amp;#10;TX · 发送 CSI 探测帧&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#10b981;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
@@ -138,7 +138,7 @@
 
         &lt;!-- ========== 连线区 ========== --&gt;
         &lt;!-- 感知层内部：TX → RX --&gt;
-        &lt;mxCell id=&quot;e1&quot; value=&quot;WiFi 信号穿过人体&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;tx&quot; target=&quot;rx&quot;&gt;
+        &lt;mxCell id=&quot;e1&quot; value=&quot;CSI 信号穿过人体&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;tx&quot; target=&quot;rx&quot;&gt;
           &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
         &lt;/mxCell&gt;
 

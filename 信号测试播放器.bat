@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title 护院鹅 · 信号测试播放器
-cd /d e:\小有可为\waveguard
+cd /d %~dp0
 
 :menu
 cls

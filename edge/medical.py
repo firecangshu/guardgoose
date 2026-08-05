@@ -68,19 +68,24 @@ class CustomDisease:
         return asdict(self)
 
 
-# 全局注册表：自定义疾病（运行时可动态增删）
+# 全局注册表：自定义疾病（运行时可动态增删，启动时从 SQLite 加载）
 _custom_diseases: dict[str, CustomDisease] = {}
 
 
-def register_disease(disease: CustomDisease) -> None:
-    """注册一个自定义疾病到全局表。"""
+def register_disease(disease: CustomDisease, conn: sqlite3.Connection | None = None) -> None:
+    """注册一个自定义疾病到全局表（可选同步持久化）。"""
     _custom_diseases[disease.code] = disease
+    if conn is not None:
+        _persist_custom_disease(conn, disease)
 
 
-def unregister_disease(code: str) -> bool:
-    """移除一个自定义疾病。"""
+def unregister_disease(code: str, conn: sqlite3.Connection | None = None) -> bool:
+    """移除一个自定义疾病（可选同步删除持久化记录）。"""
     if code in _custom_diseases:
         del _custom_diseases[code]
+        if conn is not None:
+            conn.execute("DELETE FROM custom_diseases WHERE code=?", (code,))
+            conn.commit()
         return True
     return False
 
@@ -169,6 +174,9 @@ class MedicalProfile:
     """老人健康档案（病历）。"""
     elder_name: str = "妈妈"
     age: int = 75
+    weight_kg: float = 0.0        # 体重（0=未填写），影响跌倒冲击与久滞风险评估
+    relationship: str = ""          # 监护人与老人的关系（son/daughter/…）
+    health_status: str = ""         # 身体状态标准分类（good/chronic_stable/…）
     conditions: list[str] = field(default_factory=list)    # 既往疾病
     medications: list[str] = field(default_factory=list)   # 当前用药
     fall_history: int = 0          # 既往跌倒次数
@@ -176,6 +184,8 @@ class MedicalProfile:
     family_sudden_death: bool = False  # 心脏猝死家族史
     wake_time: str = "06:30"       # 起床时间
     bed_time: str = "21:30"        # 就寝时间
+    address: str = ""              # 老人居住地址（报警120时同步给急救中心）
+    emergency_phones: list[str] = field(default_factory=list)  # 紧急联系电话（最多3个，逐个降级拨打）
     updated_at: str = ""
 
     @property
@@ -368,6 +378,9 @@ CREATE TABLE IF NOT EXISTS medical_profile (
     id          INTEGER PRIMARY KEY DEFAULT 1,
     elder_name  TEXT NOT NULL DEFAULT '妈妈',
     age         INTEGER DEFAULT 75,
+    weight_kg   REAL DEFAULT 0,
+    relationship TEXT DEFAULT '',
+    health_status TEXT DEFAULT '',
     conditions  TEXT DEFAULT '[]',
     medications TEXT DEFAULT '[]',
     fall_history INTEGER DEFAULT 0,
@@ -375,7 +388,24 @@ CREATE TABLE IF NOT EXISTS medical_profile (
     family_sudden_death INTEGER DEFAULT 0,
     wake_time   TEXT DEFAULT '06:30',
     bed_time    TEXT DEFAULT '21:30',
+    address     TEXT DEFAULT '',
+    emergency_phone TEXT DEFAULT '',
+    emergency_phones TEXT DEFAULT '[]',
     updated_at  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS custom_diseases (
+    code        TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    category    TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    fall_risk_note TEXT DEFAULT '',
+    breathing_impact TEXT DEFAULT '',
+    advice      TEXT DEFAULT '[]',
+    voice_timeout_override INTEGER DEFAULT 0,
+    skip_voice  INTEGER DEFAULT 0,
+    zone3_max_stay INTEGER DEFAULT 0,
+    created_at  TEXT
 );
 """
 
@@ -383,6 +413,18 @@ CREATE TABLE IF NOT EXISTS medical_profile (
 def init_medical_db(conn: sqlite3.Connection) -> None:
     """在现有 SQLite 连接上建病历表。"""
     conn.executescript(_MEDICAL_SCHEMA)
+    # 旧库迁移：补充新增列
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(medical_profile)")}
+    for col, ddl in (
+        ("relationship", "ALTER TABLE medical_profile ADD COLUMN relationship TEXT DEFAULT ''"),
+        ("health_status", "ALTER TABLE medical_profile ADD COLUMN health_status TEXT DEFAULT ''"),
+        ("weight_kg", "ALTER TABLE medical_profile ADD COLUMN weight_kg REAL DEFAULT 0"),
+        ("address", "ALTER TABLE medical_profile ADD COLUMN address TEXT DEFAULT ''"),
+        ("emergency_phone", "ALTER TABLE medical_profile ADD COLUMN emergency_phone TEXT DEFAULT ''"),
+        ("emergency_phones", "ALTER TABLE medical_profile ADD COLUMN emergency_phones TEXT DEFAULT '[]'"),
+    ):
+        if col not in cols:
+            conn.execute(ddl)
     # 插入默认记录（如果表为空）
     count = conn.execute("SELECT COUNT(*) FROM medical_profile").fetchone()[0]
     if count == 0:
@@ -391,7 +433,49 @@ def init_medical_db(conn: sqlite3.Connection) -> None:
             "VALUES (1, '妈妈', 75, '[]', '[]', ?)",
             (datetime.now().astimezone().isoformat(timespec="seconds"),),
         )
+    # 启动时把已确认的自定义疾病从库里加载回注册表（档案备份恢复）
+    for row in conn.execute("SELECT * FROM custom_diseases"):
+        disease = CustomDisease(
+            code=row["code"], name=row["name"], category=row["category"] or "",
+            description=row["description"] or "", fall_risk_note=row["fall_risk_note"] or "",
+            breathing_impact=row["breathing_impact"] or "",
+            advice=json.loads(row["advice"] or "[]"),
+            voice_timeout_override=row["voice_timeout_override"] or 0,
+            skip_voice=bool(row["skip_voice"]),
+            zone3_max_stay=row["zone3_max_stay"] or 0,
+        )
+        _custom_diseases[disease.code] = disease
     conn.commit()
+
+
+def _persist_custom_disease(conn: sqlite3.Connection, disease: CustomDisease) -> None:
+    """把自定义疾病写入 SQLite（档案备份）。"""
+    conn.execute(
+        "INSERT OR REPLACE INTO custom_diseases "
+        "(code, name, category, description, fall_risk_note, breathing_impact, "
+        " advice, voice_timeout_override, skip_voice, zone3_max_stay, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (disease.code, disease.name, disease.category, disease.description,
+         disease.fall_risk_note, disease.breathing_impact,
+         json.dumps(disease.advice, ensure_ascii=False),
+         disease.voice_timeout_override, int(disease.skip_voice),
+         disease.zone3_max_stay,
+         datetime.now().astimezone().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+
+
+def _load_emergency_phones(row: sqlite3.Row) -> list[str]:
+    """读紧急电话列表（最多3个），兼容旧单电话列 emergency_phone。"""
+    phones: list[str] = []
+    if "emergency_phones" in row.keys() and row["emergency_phones"]:
+        try:
+            phones = [p for p in json.loads(row["emergency_phones"]) if p]
+        except (TypeError, ValueError):
+            phones = []
+    if not phones and "emergency_phone" in row.keys() and row["emergency_phone"]:
+        phones = [row["emergency_phone"]]
+    return phones[:3]
 
 
 def load_profile(conn: sqlite3.Connection) -> MedicalProfile:
@@ -402,6 +486,9 @@ def load_profile(conn: sqlite3.Connection) -> MedicalProfile:
     return MedicalProfile(
         elder_name=row["elder_name"],
         age=row["age"],
+        weight_kg=float(row["weight_kg"] or 0) if "weight_kg" in row.keys() else 0.0,
+        relationship=(row["relationship"] if "relationship" in row.keys() else "") or "",
+        health_status=(row["health_status"] if "health_status" in row.keys() else "") or "",
         conditions=json.loads(row["conditions"]),
         medications=json.loads(row["medications"]),
         fall_history=row["fall_history"],
@@ -409,6 +496,8 @@ def load_profile(conn: sqlite3.Connection) -> MedicalProfile:
         family_sudden_death=bool(row["family_sudden_death"]),
         wake_time=row["wake_time"],
         bed_time=row["bed_time"],
+        address=(row["address"] if "address" in row.keys() else "") or "",
+        emergency_phones=_load_emergency_phones(row),
         updated_at=row["updated_at"] or "",
     )
 
@@ -417,16 +506,18 @@ def save_profile(conn: sqlite3.Connection, profile: MedicalProfile) -> None:
     """保存病历到数据库。"""
     conn.execute(
         "UPDATE medical_profile SET "
-        "elder_name=?, age=?, conditions=?, medications=?, "
+        "elder_name=?, age=?, weight_kg=?, relationship=?, health_status=?, conditions=?, medications=?, "
         "fall_history=?, syncope_history=?, family_sudden_death=?, "
-        "wake_time=?, bed_time=?, updated_at=? "
+        "wake_time=?, bed_time=?, address=?, emergency_phones=?, updated_at=? "
         "WHERE id=1",
-        (profile.elder_name, profile.age,
+        (profile.elder_name, profile.age, profile.weight_kg,
+         profile.relationship, profile.health_status,
          json.dumps(profile.conditions, ensure_ascii=False),
          json.dumps(profile.medications, ensure_ascii=False),
          profile.fall_history, profile.syncope_history,
          int(profile.family_sudden_death),
          profile.wake_time, profile.bed_time,
+         profile.address, json.dumps(profile.emergency_phones, ensure_ascii=False),
          datetime.now().astimezone().isoformat(timespec="seconds")),
     )
     conn.commit()

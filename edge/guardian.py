@@ -289,6 +289,8 @@ def _build_event_context(event: dict[str, Any], profile: MedicalProfile,
         "年龄": profile.age,
         "既往疾病": profile.conditions,
         "当前用药": profile.medications,
+        "体重": f"{profile.weight_kg}kg" if profile.weight_kg > 0 else "未填写",
+        "自定义疾病": [d.to_dict() for d in _custom_disease_context()],
         "多重用药": profile.is_multi_medication,
         "语音超时配置": f"{profile.voice_timeout}秒" if profile.voice_timeout > 0 else "跳过语音",
         "分区": event.get("zone", ""),
@@ -333,3 +335,69 @@ def _parse_qwen_response(content: str) -> dict[str, str] | None:
 def _fields(tpl: str) -> list[str]:
     import string
     return [f for _, f, _, _ in string.Formatter().parse(tpl) if f]
+
+
+# ---- 开放性病史：AI 医学词条查询 ----
+_DISEASE_LOOKUP_PROMPT = """你是医学知识库助手。给定一个疾病名称，请输出该疾病对老年人跌倒监护的影响分析。
+要求：内容面向居家老人监护场景，简洁准确，不要编造不确定的信息。
+
+输出严格 JSON（不要加markdown代码块），字段：
+{"code": "英文小写短标识（拼音或通用英文名，如copd/parkinson）", "name": "疾病中文名", "category": "疾病类别（呼吸系统/心血管/代谢/神经/骨骼肌肉/精神心理/其他）", "description": "疾病特征描述（40字内）", "fall_risk_note": "对跌倒风险的影响（40字内）", "breathing_impact": "对呼吸监测的影响（40字内）", "advice": ["告警时的建议处理（1-3条，每条20字内）"]}
+
+疾病名称：{name}
+老人年龄：{age}岁
+"""
+
+
+def _custom_disease_context() -> list:
+    """取已确认的自定义疾病（延迟导入避免循环）。"""
+    from . import medical
+    return [d for d in (medical.get_custom_disease(item["code"])
+                        for item in medical.list_custom_diseases()) if d]
+
+
+def lookup_disease(disease_name: str, age: int = 75) -> dict[str, Any]:
+    """调用 AI 查医学词条，返回结构化疾病分析；失败时降级通用模板。
+
+    返回含 ai_generated 标志：True=AI 生成，False=降级模板（需人工确认）。
+    """
+    if C.QWEN_ENABLED and C.QWEN_API_KEY:
+        payload = {
+            "model": C.QWEN_MODEL,
+            "messages": [
+                {"role": "user",
+                 "content": _DISEASE_LOOKUP_PROMPT.replace("{name}", disease_name)
+                                                    .replace("{age}", str(age))},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 400,
+        }
+        req = urllib.request.Request(
+            f"{C.QWEN_BASE_URL}/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {C.QWEN_API_KEY}"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=C.QWEN_TIMEOUT_S) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+            content = result["choices"][0]["message"]["content"]
+            d = _parse_qwen_response(content)
+            if d and d.get("name"):
+                d.setdefault("advice", [])
+                d["ai_generated"] = True
+                return d
+        except Exception as e:
+            logger.warning("AI 医学词条查询失败，降级通用模板: %s", e)
+    # 降级：通用模板，由子女端人工确认补充
+    return {
+        "code": "",
+        "name": disease_name,
+        "category": "其他",
+        "description": f"{disease_name}（AI 暂不可用，已按通用模板创建，请确认具体影响）",
+        "fall_risk_note": "可能影响平衡或意识，跌倒风险需关注",
+        "breathing_impact": "可能影响呼吸节律，需观察",
+        "advice": ["联系老人确认状况", "必要时前往查看"],
+        "ai_generated": False,
+    }

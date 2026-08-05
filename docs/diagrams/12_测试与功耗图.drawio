@@ -1,11 +1,11 @@
 <mxfile host="app.diagrams.net" version="29.0.3" type="device">
-  <diagram name="测试与成本功耗图" id="test_cost">
+  <diagram name="测试与功耗图" id="test_power">
     <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="title" value="护院鹅 · 测试与成本功耗图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontColor=#e8ecf4;fontSize=22;fontStyle=1;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="300" y="820" width="900" height="40" as="geometry" /></mxCell>
-        <mxCell id="note" value="💡 解决 P2 遗漏 #15/#16/#18：12场景测试矩阵 + 成本功耗预算 + 性能指标" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#f59e0b;fontSize=12;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="100" y="780" width="1400" height="30" as="geometry" /></mxCell>
+        <mxCell id="title" value="护院鹅 · 测试与功耗图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontColor=#e8ecf4;fontSize=22;fontStyle=1;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="300" y="820" width="900" height="40" as="geometry" /></mxCell>
+        <mxCell id="note" value="💡 解决 P2 遗漏 #15/#16/#18：12场景测试矩阵 + 部署配置功耗预算 + 性能指标" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontColor=#f59e0b;fontSize=12;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="100" y="780" width="1400" height="30" as="geometry" /></mxCell>
         <mxCell id="ref" value="📐 完整图请查看同名 .mmd 源文件或 _预览.png&#10;drawio 桌面版支持直接导入 .mmd 文件" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#f59e0b;strokeWidth=2;fontColor=#e8ecf4;fontSize=13;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1"><mxGeometry x="500" y="350" width="600" height="100" as="geometry" /></mxCell>
         <mxCell id="ver" value="版本：v1.0 | 日期：2026-08-03" style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=middle;fontColor=#64748b;fontSize=11;fontFamily=Microsoft YaHei;" vertex="1" parent="1"><mxGeometry x="1100" y="820" width="400" height="30" as="geometry" /></mxCell>
       </root>

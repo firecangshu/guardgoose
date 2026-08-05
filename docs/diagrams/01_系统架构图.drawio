@@ -65,7 +65,7 @@
         </mxCell>
 
         <!-- ========== 感知层容器（绿色·底部） ========== -->
-        <mxCell id="layer_sense" value="📡 感知层 · ESP32 硬件（Sensing Layer · WiFi CSI）" style="rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#1a3a2a;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;" vertex="1" parent="1">
+        <mxCell id="layer_sense" value="📡 感知层 · CSI 采集设备（Sensing Layer · CSI）" style="rounded=1;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;fillColor=#1a3a2a;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=14;fontStyle=1;fontFamily=Microsoft YaHei;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;" vertex="1" parent="1">
           <mxGeometry x="350" y="620" width="750" height="140" as="geometry" />
         </mxCell>
         <mxCell id="tx" value="📡 ESP32 发射端&#10;TX · 发送 CSI 探测帧" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f1420;strokeColor=#10b981;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1">
@@ -77,7 +77,7 @@
 
         <!-- ========== 连线区 ========== -->
         <!-- 感知层内部：TX → RX -->
-        <mxCell id="e1" value="WiFi 信号穿过人体" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;" edge="1" parent="1" source="tx" target="rx">
+        <mxCell id="e1" value="CSI 信号穿过人体" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#6ee7b7;fontSize=11;fontFamily=Microsoft YaHei;labelBackgroundColor=#0f1420;" edge="1" parent="1" source="tx" target="rx">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 

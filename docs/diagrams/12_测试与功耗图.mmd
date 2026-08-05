@@ -15,12 +15,12 @@ graph TB
         T12["T12 断电恢复<br/>预期: UPS + SQLite 校验"]
     end
 
-    subgraph 成本["💰 成本预算"]
-        C1["ESP32 模块<br/>¥35/对 × 2 = ¥70"]
-        C2["边缘服务器<br/>树莓派4B 4G: ¥350<br/>Jetson Nano: ¥800"]
-        C3["UPS 不间断电源<br/>¥150 / 30min续航"]
-        C4["云服务<br/>Qwen API: ¥0.01/次<br/>月均: ¥30"]
-        C5["合计 MVP<br/>¥600 (树莓派方案)<br/>¥1050 (Jetson方案)"]
+    subgraph 设备["🔧 部署配置"]
+        C1["CSI 采集模组<br/>TX/RX 一对"]
+        C2["边缘服务器<br/>树莓派4B / Jetson Nano"]
+        C3["UPS 不间断电源<br/>30min 续航"]
+        C4["云服务<br/>Qwen API 按事件驱动调用"]
+        C5["MVP 部署形态<br/>CSI 专业设备 + 边缘网关"]
     end
 
     subgraph 功耗["⚡ 功耗预算（7×24 运行）"]
@@ -28,7 +28,7 @@ graph TB
         P2["树莓派4B<br/>3W × 24h = 72Wh/天"]
         P3["Jetson Nano<br/>5W × 24h = 120Wh/天"]
         P4["UPS 损耗<br/>约 10% 转换损失"]
-        P5["月耗电<br/>树莓派: ~2.5度 ¥1.5<br/>Jetson: ~4度 ¥2.4"]
+        P5["月耗电<br/>树莓派: ~2.5度<br/>Jetson: ~4度"]
     end
 
     subgraph 指标["📈 性能指标"]
@@ -40,11 +40,11 @@ graph TB
         M6["Qwen 推理延迟<br/>目标: ≤ 3秒（含降级）"]
     end
 
-    矩阵 --> 成本
-    成本 --> 功耗
+    矩阵 --> 设备
+    设备 --> 功耗
     功耗 --> 指标
 
     style 矩阵 fill:#1a2a3a,stroke:#3b82f6,color:#e8ecf4
-    style 成本 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
+    style 设备 fill:#1a3a2a,stroke:#10b981,color:#e8ecf4
     style 功耗 fill:#3a2a1a,stroke:#f59e0b,color:#e8ecf4
     style 指标 fill:#2a1a3a,stroke:#8b5cf6,color:#e8ecf4

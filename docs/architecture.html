@@ -38,7 +38,7 @@
 <body>
 <div class="container">
     <h1>🛡️ 护院鹅 · 系统架构全景</h1>
-    <p class="subtitle">WiFi CSI 居家安全守护系统 · 架构设计文档</p>
+    <p class="subtitle">CSI 居家安全守护系统 · 架构设计文档</p>
 
     <!-- ==================== 图1：系统总体架构 ==================== -->
     <div class="diagram-section">
@@ -46,10 +46,10 @@
         <p class="desc">从硬件感知到子女端展示的完整四层架构</p>
         <div class="mermaid">
 graph TB
-    subgraph 感知层["📡 感知层 · ESP32 硬件"]
+    subgraph 感知层["📡 感知层 · CSI 采集设备"]
         TX["ESP32 发射端<br/>发送 CSI 探测帧"]
         RX["ESP32 接收端<br/>采集 CSI 数据"]
-        TX -->|"WiFi 信号穿过人体"| RX
+        TX -->|"CSI 信号穿过人体"| RX
     end
 
     subgraph 边缘层["🖥️ 边缘层 · 本地服务器"]
