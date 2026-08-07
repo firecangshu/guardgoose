@@ -62,6 +62,18 @@ def _post(url: str, payload: dict) -> None:
         print(f"  ! 推送失败: {e}")
 
 
+def _set_real(base_url: str, enabled: bool) -> None:
+    """样本走真实轨注入：播放前自动开真实接入，结束后还原关闭。"""
+    data = json.dumps({"enabled": enabled}).encode("utf-8")
+    req = urllib.request.Request(base_url.rstrip("/") + "/api/source-mode/real",
+                                 data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            resp.read()
+    except Exception as e:
+        print(f"  ! 切换真实接入失败: {e}")
+
+
 def play(scenario_file: str, base_url: str, speed_override: float | None) -> None:
     path = SCEN_DIR / scenario_file
     if not path.suffix:
@@ -75,23 +87,27 @@ def play(scenario_file: str, base_url: str, speed_override: float | None) -> Non
     print(f"▶ 剧本：{scen['name']}   分区：{zone}   加速：{speed}x")
     print(f"  推送到 {ingest_url}\n")
 
+    _set_real(base_url, True)   # 闸门：样本注入需真实接入开启（会自动关闭演示）
     sim_t = 0.0
-    for seg in scen["segments"]:
-        dur = int(seg["duration_s"])
-        br_low = seg.get("br_low", 14)
-        br_high = seg.get("br_high", 18)
-        br_state = seg.get("br_state", "")
-        print(f"  ├─ [{int(sim_t):>4}s] {seg['label']}  ({seg['pattern']}, {dur}s, 呼吸{br_low}-{br_high})")
-        for _ in range(dur):
-            ts = (BASE_TIME + timedelta(seconds=sim_t)).isoformat(timespec="seconds")
-            intensity = _intensity(seg["pattern"], seg["low"], seg["high"])
-            br_rate, br_st = _breathing(br_low, br_high, br_state)
-            _post(ingest_url, {"ts": ts, "sim_t": sim_t,
-                               "intensity": intensity, "zone": zone,
-                               "breathing_rate": br_rate, "breathing_state": br_st})
-            sim_t += 1
-            time.sleep(1.0 / speed)
-    print(f"\n✔ 剧本播放完毕，共 {int(sim_t)} sim-秒。")
+    try:
+        for seg in scen["segments"]:
+            dur = int(seg["duration_s"])
+            br_low = seg.get("br_low", 14)
+            br_high = seg.get("br_high", 18)
+            br_state = seg.get("br_state", "")
+            print(f"  ├─ [{int(sim_t):>4}s] {seg['label']}  ({seg['pattern']}, {dur}s, 呼吸{br_low}-{br_high})")
+            for _ in range(dur):
+                ts = (BASE_TIME + timedelta(seconds=sim_t)).isoformat(timespec="seconds")
+                intensity = _intensity(seg["pattern"], seg["low"], seg["high"])
+                br_rate, br_st = _breathing(br_low, br_high, br_state)
+                _post(ingest_url, {"ts": ts, "sim_t": sim_t,
+                                   "intensity": intensity, "zone": zone,
+                                   "breathing_rate": br_rate, "breathing_state": br_st})
+                sim_t += 1
+                time.sleep(1.0 / speed)
+        print(f"\n✔ 剧本播放完毕，共 {int(sim_t)} sim-秒。")
+    finally:
+        _set_real(base_url, False)   # 还原：关闭真实接入，回到待机
 
 
 def main() -> None:

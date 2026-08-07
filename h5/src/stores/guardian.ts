@@ -129,11 +129,30 @@ export const useGuardianStore = defineStore('guardian', () => {
   const intensity = ref(0)
   const breathingRate = ref(0)
   const breathingState = ref('normal')
+  /** 语义三态：rest 静坐休憩中 / active 活动中 / fall 疑似跌倒；空串=未探测到人（不断言） */
+  const semanticState = ref('')
+  /** 呼吸正常带上限（已按档案修正，供守护页画医学色带） */
+  const breathingBandMax = ref(20)
+  /** 档案修正系数（守护页展示「已按档案调整」痕迹） */
+  const profileAdjustments = ref<Record<string, any>>({})
   const intensityHistory = ref<number[]>([])
+  /** 呼吸率历史（次/分，0=未检出），与强度曲线同源同步，画呼吸波动表 */
+  const breathHistory = ref<number[]>([])
   const events = ref<EventItem[]>([])
   const alerts = ref<AlertItem[]>([])
   const profile = ref<ProfileData | null>(null)
   const voiceConfirmState = ref('')
+  /** 确证轮次：0=无 1=第一轮等待 2=第二轮等待（报警响铃中） */
+  const voiceRound = ref(0)
+  /** 当前轮次等待时长（秒，随档案：第一轮 voice_timeout / 第二轮 requery_wait_s） */
+  const voiceTimeoutS = ref(90)
+  /** 第二轮报警响铃状态：ack_required 告警到达→响铃，已知晓→停 */
+  const ackRequired = ref(false)
+  const alertAcked = ref(false)
+  /** 最近一次告警解除原因（守护页「已解除」汇总小结的数据源） */
+  const lastClearedReason = ref('')
+  const clearedSeq = ref(0)
+  let ringTimer: ReturnType<typeof setInterval> | null = null
   const refreshing = ref(false)
 
   /* ---- 离线状态（替代演示模式）---- */
@@ -153,8 +172,8 @@ export const useGuardianStore = defineStore('guardian', () => {
   const demoScenarios = ref<DemoScenarioInfo[]>([])
 
   /* ---- 演示接入过渡态：每个场景都是独立“剧本”
-   * 切换场景 = 重新接入：无信号（上一场景断开）→ 演示信号接入中 → 落定
-   * 等新场景第一个样本真正到达才解除，3.5 秒兜底防卡死 ---- */
+   * 切换场景 = 重新接入：无信号（上一场景断开）→ 接入检测中 → 接入成功 → 落定
+   * 剧本接入过程是模拟演出：样本到达不提前清除，走完既定阶段才落定 ---- */
   const demoTransition = ref('')
   const demoTransLost = ref(false)  // 重新接入时的“无信号”阶段
   let demoTransTimer: ReturnType<typeof setTimeout> | null = null
@@ -168,17 +187,22 @@ export const useGuardianStore = defineStore('guardian', () => {
   function startDemoTransition(switching: boolean) {
     clearDemoTransition()
     if (switching) {
-      // 重新接入：先短暂“无信号”（上一场景已断开），再进入接入中
+      // 重新接入：先短暂“无信号”（上一场景已断开），再进入接入检测中
       demoTransLost.value = true
       demoTransition.value = '无信号'
       demoLostTimer = setTimeout(() => {
         demoTransLost.value = false
-        if (demoTransition.value) demoTransition.value = '演示信号接入中'
+        if (demoTransition.value) demoTransition.value = '接入检测中'
       }, 900)
     } else {
-      demoTransition.value = '演示信号接入中'
+      demoTransition.value = '接入检测中'
     }
-    demoTransTimer = setTimeout(clearDemoTransition, 3500)
+    // 剧本接入：检测中约 1.5s 后桥接成功，随即落定为常驻信号良好
+    // （切换场景时检测中从 0.9s 才开始，成功节点顺延，避开“无信号”阶段）
+    setTimeout(() => {
+      if (demoTransition.value === '接入检测中') demoTransition.value = '接入成功 · 信号良好'
+    }, switching ? 2400 : 1500)
+    demoTransTimer = setTimeout(clearDemoTransition, switching ? 4200 : 3500)
   }
 
   /* ---- 计算属性 ---- */
@@ -248,19 +272,48 @@ export const useGuardianStore = defineStore('guardian', () => {
     }, reconnectDelay)
   }
 
+  /** 第二轮报警响铃：每 5 秒重复提示音，直到家人点「已知晓」 */
+  function startRingLoop() {
+    ackRequired.value = true
+    playAlertSound()
+    if (ringTimer) return
+    ringTimer = setInterval(playAlertSound, 5000)
+  }
+  function stopRingLoop() {
+    ackRequired.value = false
+    if (ringTimer) { clearInterval(ringTimer); ringTimer = null }
+  }
+
+  /** 清实时判定面残留：三态/语音确证/曲线/告警卡（不清事件库） */
+  function clearLiveState() {
+    semanticState.value = ''
+    voiceConfirmState.value = ''
+    voiceRound.value = 0
+    alertAcked.value = false
+    lastClearedReason.value = ''
+    stopRingLoop()
+    present.value = false
+    guardZone.value = -1
+    intensityHistory.value = []
+    breathHistory.value = []
+  }
+
   function handleWsMessage(msg: { kind: string; data: any }) {
     switch (msg.kind) {
       case 'sample':
-        if (demoTransition.value) clearDemoTransition()  // 新场景样本到达，过渡结束
         intensity.value = msg.data.intensity
         breathingRate.value = msg.data.breathing_rate
         breathingState.value = msg.data.breathing_state || 'normal'
         guardZone.value = msg.data.guard_zone
         present.value = msg.data.present
         zone.value = msg.data.zone
+        if (typeof msg.data.semantic_state === 'string') semanticState.value = msg.data.semantic_state
+        if (typeof msg.data.breathing_band_max === 'number') breathingBandMax.value = msg.data.breathing_band_max
         lastSampleTime.value = fmtTime(msg.data.ts || new Date().toISOString())
         intensityHistory.value.push(msg.data.intensity)
         if (intensityHistory.value.length > 60) intensityHistory.value.shift()
+        breathHistory.value.push(msg.data.breathing_rate || 0)
+        if (breathHistory.value.length > 60) breathHistory.value.shift()
         break
       case 'event':
         events.value.unshift(msg.data)
@@ -270,29 +323,50 @@ export const useGuardianStore = defineStore('guardian', () => {
         alerts.value.unshift(msg.data)
         if (alerts.value.length > 50) alerts.value.pop()
         if (msg.data.level === 'red' || msg.data.level === 'emergency') playAlertSound()
+        // 第二轮确证报警（ack_required）→ 循环响铃直到家人知晓
+        if (msg.data.ack_required && !alertAcked.value) startRingLoop()
         break
       case 'voice_confirm':
         voiceConfirmState.value = 'waiting'
+        voiceRound.value = msg.data.round || 1
+        if (typeof msg.data.timeout_s === 'number') voiceTimeoutS.value = msg.data.timeout_s
         break
       case 'voice_responded':
         voiceConfirmState.value = msg.data.state
+        voiceRound.value = 0   // 有回应即确证链终止（解除/升级）
         break
       case 'alert_cleared':
         voiceConfirmState.value = ''
+        voiceRound.value = 0
         guardZone.value = 0
+        lastClearedReason.value = msg.data.reason || '告警已解除'
+        clearedSeq.value += 1
+        stopRingLoop()
         break
       case 'alert_escalated':
         guardZone.value = 3
         playAlertSound()
         break
+      case 'alert_acked':
+        alertAcked.value = true
+        stopRingLoop()
+        break
       case 'reset':
         events.value = []
         alerts.value = []
-        intensityHistory.value = []
-        guardZone.value = -1
+        clearLiveState()
+        break
+      case 'demo_state_cleared':
+        // 后端切换演示场景时状态机归零，前端同步清残留
+        clearLiveState()
         break
       case 'profile_updated':
         elderName.value = msg.data.elder_name || '妈妈'
+        break
+      case 'profile_adjustments':
+        // 档案保存/疾病增删后，后端广播最新修正系数
+        profileAdjustments.value = msg.data || {}
+        if (typeof msg.data?.breathing_band_max === 'number') breathingBandMax.value = msg.data.breathing_band_max
         break
       case 'source_mode':
         // 后端广播数据源模式变更（含真实接入自动关演示）
@@ -339,6 +413,7 @@ export const useGuardianStore = defineStore('guardian', () => {
       breathingRate.value = 0
       breathingState.value = 'normal'
       intensityHistory.value = []
+      breathHistory.value = []
       lastSampleTime.value = ''
     }
     try {
@@ -397,6 +472,9 @@ export const useGuardianStore = defineStore('guardian', () => {
       present.value = s.present
       zone.value = s.zone
       guardZone.value = s.guard_zone
+      if (typeof (s as any).semantic_state === 'string') semanticState.value = (s as any).semantic_state
+      if (typeof (s as any).breathing_band_max === 'number') breathingBandMax.value = (s as any).breathing_band_max
+      if ((s as any).adjustments) profileAdjustments.value = (s as any).adjustments
       offline.value = false
     } catch {
       offline.value = true
@@ -427,6 +505,15 @@ export const useGuardianStore = defineStore('guardian', () => {
     } catch { /* ignore */ }
   }
 
+  /** 家人已知晓：第二轮报警响铃的停止条件 */
+  async function ackAlert() {
+    try {
+      await api.alertAck()
+      alertAcked.value = true
+      stopRingLoop()
+    } catch { /* ignore */ }
+  }
+
   /** 手动刷新：去缓存强拉最新数据，并感知数据是否卡住，返回结果提示 */
   async function refreshAll(): Promise<string> {
     refreshing.value = true
@@ -453,14 +540,16 @@ export const useGuardianStore = defineStore('guardian', () => {
 
   return {
     wsConnected, elderName, present, zone, guardZone,
-    intensity, breathingRate, breathingState, intensityHistory,
+    intensity, breathingRate, breathingState, intensityHistory, breathHistory,
+    semanticState, breathingBandMax, profileAdjustments,
     events, alerts, profile, voiceConfirmState, refreshing,
+    voiceRound, voiceTimeoutS, ackRequired, alertAcked, lastClearedReason, clearedSeq,
     offline, lastSampleTime, deviceState, deviceStatus, diagnosis,
     realEnabled, demoEnabled, demoScenario, demoScenarios, demoTransition, demoTransLost,
     zoneInfo, breathingInfo, alertCount, latestAlert,
     connectionState, connectionInfo, standby, connecting, signalLost, monitoringLive,
     connectWs, loadEvents, loadStatus, loadProfile, saveProfile,
-    confirmAlert, init, refreshAll, pollDeviceStatus, loadDiagnosis,
+    confirmAlert, ackAlert, init, refreshAll, pollDeviceStatus, loadDiagnosis,
     loadSourceMode, toggleReal, toggleDemo,
   }
 })

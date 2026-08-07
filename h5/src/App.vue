@@ -53,8 +53,10 @@ store.connectWs()
 .offline-banner {
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max-width, 480px);
   z-index: 999;
   background: #ee0a24;
   color: #fff;

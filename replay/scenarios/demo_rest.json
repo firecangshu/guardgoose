@@ -1,0 +1,11 @@
+{
+  "name": "有人 · 正常 · 休憩中",
+  "zone": "living",
+  "description": "先短暂活动确认有人，随后静坐休息、气息均匀 → 系统判定「正常 · 有人休息中 · 呼吸平稳」。",
+  "speed": 10,
+  "segments": [
+    { "label": "在家活动（确认有人）", "duration_s": 20, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
+    { "label": "坐下休息，气息均匀", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 },
+    { "label": "安静看电视，呼吸平稳", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "有人 · 正常 · 移动中",
+  "zone": "living",
+  "description": "匀速活动、气息均匀 → 系统判定「正常 · 有人活动中」，绿区巡航不告警。",
+  "speed": 10,
+  "segments": [
+    { "label": "在家匀速活动（做家务、走动）", "duration_s": 60, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
+    { "label": "继续活动，气息均匀", "duration_s": 60, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 }
+  ]
+}

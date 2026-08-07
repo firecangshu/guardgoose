@@ -101,3 +101,9 @@ coverage.xml
 
 # ============ 本地配置 ============
 local_settings.py
+
+# ============ 联调临时产物（20260807） ============
+_st.json
+test_data_realtime.csv
+test_results/
+.qoder/

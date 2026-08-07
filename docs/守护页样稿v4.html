@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>守护页样稿 v4 · 三态定稿</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#ffffff; --line:#e8ecf0;
+    --ink:#1f2937; --ink2:#6b7280; --ink3:#9ca3af;
+    --ok:#16a34a; --warn:#f59e0b; --danger:#dc2626; --calm:#9ca3af;
+    --blue:#2563eb; --radius:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
+  body{background:#d8dee6;display:flex;justify-content:center;padding:24px 12px;}
+  .phone{width:420px;background:var(--bg);border-radius:28px;padding:16px 14px 26px;box-shadow:0 12px 40px rgba(0,0,0,.18);}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:2px 6px 12px;}
+  .topbar .t{font-size:17px;font-weight:700;color:var(--ink);}
+  .topbar .d{font-size:12px;color:var(--ink2);}
+
+  .demo{display:flex;gap:6px;margin-bottom:12px;}
+  .demo button{flex:1;padding:8px 2px;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:12px;color:var(--ink2);cursor:pointer;}
+  .demo button.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+  /* ---- 状态条 ---- */
+  .status-card{background:var(--card);border-radius:var(--radius);padding:18px 16px;margin-bottom:12px;border-left:6px solid var(--ok);}
+  .status-card.danger{border-left-color:var(--danger);}
+  .status-card.quiet{border-left-color:var(--calm);}
+  .status-line{display:flex;align-items:center;gap:10px;}
+  .status-emoji{font-size:30px;line-height:1;}
+  .status-main{font-size:23px;font-weight:800;color:var(--ink);}
+  .status-main.red{color:var(--danger);}
+  .status-sub{font-size:13px;color:var(--ink2);margin-top:8px;line-height:1.6;}
+  .status-meta{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .pill{font-size:12px;padding:4px 10px;border-radius:99px;background:#f1f5f9;color:var(--ink2);}
+  .pill.g{background:#ecfdf5;color:#047857;}
+  .pill.o{background:#fffbeb;color:#b45309;}
+  .pill.r{background:#fef2f2;color:#b91c1c;}
+
+  /* ---- 双证据线（仅预警出现）---- */
+  .evidence{background:#fff;border:1px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:12px;}
+  .evidence-title{font-size:13px;font-weight:700;color:var(--danger);margin-bottom:8px;}
+  .ev-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);padding:5px 0;}
+  .ev-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;flex:none;background:var(--danger);}
+  .ev-note{font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;}
+
+  /* ---- 响应措施时间线 ---- */
+  .resp{background:#fff5f5;border:1px solid #fecaca;border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .resp.hidden{display:none;}
+  .resp-title{font-size:14px;font-weight:800;color:var(--danger);margin-bottom:10px;}
+  .step{display:flex;gap:10px;position:relative;padding-bottom:14px;}
+  .step:last-child{padding-bottom:0;}
+  .step::before{content:'';position:absolute;left:11px;top:24px;bottom:0;width:2px;background:#fecaca;}
+  .step:last-child::before{display:none;}
+  .step-dot{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;z-index:1;}
+  .step-dot.done{background:var(--danger);color:#fff;}
+  .step-dot.doing{background:#fff;border:2px solid var(--danger);color:var(--danger);animation:pulse 1.2s infinite;}
+  .step-dot.todo{background:#fff;border:2px solid #fca5a5;color:#fca5a5;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.35);}50%{box-shadow:0 0 0 6px rgba(220,38,38,0);}}
+  .step-body{flex:1;}
+  .step-name{font-size:13px;font-weight:700;color:var(--ink);}
+  .step-desc{font-size:12px;color:var(--ink2);margin-top:2px;line-height:1.5;}
+  .step-tag{font-size:11px;padding:1px 8px;border-radius:99px;margin-left:6px;vertical-align:1px;}
+  .tag-done{background:#fee2e2;color:#b91c1c;}
+  .tag-doing{background:#fef3c7;color:#b45309;}
+  .tag-todo{background:#f3f4f6;color:#9ca3af;}
+  .resp-btns{display:flex;gap:10px;margin-top:12px;}
+  .btn{flex:1;padding:11px 0;border-radius:12px;border:none;font-size:14px;font-weight:700;cursor:pointer;}
+  .btn.primary{background:var(--danger);color:#fff;}
+  .btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line);}
+
+  /* ---- 数据表 ---- */
+  .chart-card{background:var(--card);border-radius:var(--radius);padding:14px 14px 10px;margin-bottom:12px;}
+  .chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .chart-title{font-size:14px;font-weight:700;color:var(--ink);}
+  .chart-now{font-size:12px;color:var(--ink2);}
+  canvas{display:block;width:100%;}
+  .chart-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:4px;padding:0 2px;}
+  .legend{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;}
+  .legend span{font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:4px;}
+  .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
+  .note{font-size:11px;color:var(--ink3);text-align:center;margin-top:4px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <span class="t">🪿 护院鹅 · 守护页</span>
+    <span class="d">14:32 · 信号正常</span>
+  </div>
+
+  <div class="demo">
+    <button onclick="setScene('rest')">静坐休憩</button>
+    <button onclick="setScene('active')">活动中</button>
+    <button onclick="setScene('fall')">疑似跌倒</button>
+  </div>
+
+  <!-- 状态条 -->
+  <div class="status-card" id="statusCard">
+    <div class="status-line">
+      <span class="status-emoji" id="statusEmoji">🛋️</span>
+      <span class="status-main" id="statusMain">静坐休憩中 · 呼吸平稳</span>
+    </div>
+    <div class="status-sub" id="statusSub">已安静休息 23 分钟，呼吸 12 次/分，一切正常</div>
+    <div class="status-meta" id="statusMeta">
+      <span class="pill g">呼吸 12 次/分</span>
+      <span class="pill">运动幅度 平稳</span>
+      <span class="pill">客厅</span>
+    </div>
+  </div>
+
+  <!-- 双证据线（仅跌倒场景） -->
+  <div class="evidence" id="evidence" style="display:none">
+    <div class="evidence-title">为什么判定为疑似跌倒（双证据线）</div>
+    <div class="ev-row"><span class="ev-icon">✓</span>证据线 1 · 运动幅度突然增大：冲击峰值 0.31（阈值 0.22），且 8 秒未起身</div>
+    <div class="ev-row"><span class="ev-icon">✓</span>证据线 2 · 呼吸频率加快：9 → 22 次/分（正常 8~20）</div>
+    <div class="ev-note">判定规则：两条证据线同时成立才报警。若只有动作冲击、呼吸无变化，按「伸懒腰/弯腰」处理，不打扰你。</div>
+  </div>
+
+  <!-- 响应措施时间线（仅跌倒场景） -->
+  <div class="resp hidden" id="respCard">
+    <div class="resp-title">🚨 已自动启动的应对措施</div>
+    <div id="steps"></div>
+    <div class="resp-btns">
+      <button class="btn primary">📞 立即拨打老人电话</button>
+      <button class="btn ghost">这是误报</button>
+    </div>
+  </div>
+
+  <!-- 运动幅度表 -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <span class="chart-title">📶 运动幅度（近 5 分钟）</span>
+      <span class="chart-now" id="motionNow">当前 0.01 · 平稳</span>
+    </div>
+    <canvas id="motionChart" width="776" height="300"></canvas>
+    <div class="chart-foot"><span>5分前</span><span>3分前</span><span>1分前</span><span>现在</span></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#cbd5e1"></i>平稳</span>
+      <span><i class="dot" style="background:#22c55e"></i>活动</span>
+      <span><i class="dot" style="background:#ef4444"></i>突然增大</span>
+      <span><i class="dot" style="background:none;border-top:2px dashed #f59e0b;width:14px;height:0"></i>环境底噪</span>
+    </div>
+  </div>
+
+  <!-- 呼吸频率表 -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <span class="chart-title">🫁 呼吸频率（近 5 分钟）</span>
+      <span class="chart-now" id="breathNow">12 次/分 · 平稳</span>
+    </div>
+    <canvas id="breathChart" width="776" height="260"></canvas>
+    <div class="chart-foot"><span>5分前</span><span>3分前</span><span>1分前</span><span>现在</span></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#22c55e"></i>平稳 8~20</span>
+      <span><i class="dot" style="background:#fb923c"></i>加快&gt;20 / 浅慢&lt;8</span>
+      <span><i class="dot" style="background:#ef4444"></i>衰减&lt;3</span>
+      <span style="color:var(--ink3)">空白 = 暂未测到（活动打断或无呼吸信号）</span>
+    </div>
+  </div>
+
+  <div class="note">样稿 v4 · 三态定稿：静坐休憩中 / 活动中 / 疑似跌倒<br>双证据线：运动突增 + 呼吸变化同时成立才预警 · 阈值复用后端 config</div>
+</div>
+
+<script>
+const STILL_MAX=0.05, ACTIVE_MIN=0.15, SPIKE_MIN=0.22;
+const BR_LOST=3, BR_SLOW=8, BR_MAX=20, BR_TOP=30;
+const N=300;
+
+function genMotion(scene){
+  const a=new Array(N), floor=new Array(N);
+  let f=0.008, spikeAt=-1;
+  for(let i=0;i<N;i++){
+    floor[i]=f;
+    let v=f*(0.6+Math.random()*0.8)+Math.random()*0.004;
+    if(scene==='rest'){
+      if(Math.random()<0.015) v=f*3+Math.random()*0.015;
+    }else if(scene==='active'){
+      if(i>=200) v=0.18+Math.random()*0.16;
+      if(Math.random()<0.015) v=Math.max(v,f*2.5);
+    }else if(scene==='fall'){
+      if(i>=232&&i<=252) v=0.18+Math.random()*0.14;
+      if(i===256){v=0.31;spikeAt=i;}
+      if(i>256&&i<N) v=0.01+Math.random()*0.015;
+      if(Math.random()<0.012) v=Math.max(v,f*2.5);
+    }else{ // quiet：环境安静，只有底噪
+      if(Math.random()<0.012) v=f*2.8;
+    }
+    a[i]=Math.min(v,1);
+  }
+  return {a,floor,spikeAt};
+}
+function genBreath(scene){
+  const r=new Array(N).fill(null);
+  let rate=12;
+  if(scene==='rest'){
+    let locked=false;
+    for(let i=0;i<N;i++){
+      if(Math.random()<0.025) locked=!locked;
+      if(i>255) locked=true;
+      if(locked){ rate+=(Math.random()-0.5)*0.5; rate=Math.max(10,Math.min(14,rate)); r[i]=rate; }
+    }
+  }else if(scene==='active'){
+    for(let i=0;i<N;i++){
+      if(i<180&&Math.random()<0.4){ rate+=(Math.random()-0.5)*0.5; rate=Math.max(10,Math.min(14,rate)); r[i]=rate; }
+    }
+  }else if(scene==='fall'){
+    for(let i=0;i<N;i++){
+      if(i<230&&Math.random()<0.5){ rate+=(Math.random()-0.5)*0.5; rate=Math.max(10,Math.min(13,rate)); r[i]=rate; }
+      if(i>=258&&i<N){
+        rate=Math.min(22, rate+0.8+(Math.random()-0.3)*0.6);
+        if(Math.random()<0.85) r[i]=rate;
+      }
+    }
+  }
+  // quiet：全空，不做断言
+  return r;
+}
+
+function drawMotion(m){
+  const cv=document.getElementById('motionChart'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,padL=64,padR=8,padT=8,padB=26;
+  const cw=W-padL-padR, ch=H-padT-padB;
+  ctx.clearRect(0,0,W,H);
+  const segs=[[0,STILL_MAX,.30],[STILL_MAX,ACTIVE_MIN,.25],[ACTIVE_MIN,SPIKE_MIN,.15],[SPIKE_MIN,1,.30]];
+  const yOf=v=>{
+    let acc=0;
+    for(const [lo,hi,frac] of segs){
+      if(v<=hi||hi===1){ acc+=(Math.min(v,hi)-lo)/(hi-lo)*frac; return padT+ch-acc*ch; }
+      acc+=frac;
+    }
+    return padT;
+  };
+  const bandCols=['#f1f5f9','#fefce8','#f0fdf4','#fef2f2'];
+  let y0=padT+ch;
+  segs.forEach(([lo,hi,frac],k)=>{ const h=ch*frac; y0-=h; ctx.fillStyle=bandCols[k]; ctx.fillRect(padL,y0,cw,h); });
+  ctx.font='10px sans-serif';ctx.fillStyle='#9ca3af';ctx.textAlign='right';
+  [[0,'0'],[STILL_MAX,'0.05'],[ACTIVE_MIN,'0.15'],[SPIKE_MIN,'0.22 突增'],[1,'1.0']].forEach(([v,t])=>{
+    const y=yOf(v);
+    ctx.strokeStyle='#e2e8f0';ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.stroke();
+    ctx.fillText(t,padL-6,y+3);
+  });
+  const bw=cw/N, lastFloor=m.floor[N-1];
+  for(let i=0;i<N;i++){
+    const v=m.a[i],x=padL+i*bw,y=yOf(v),h=padT+ch-y;
+    let col = v>=SPIKE_MIN?'#ef4444': v>=ACTIVE_MIN?'#22c55e':'#cbd5e1';
+    ctx.fillStyle=col;
+    ctx.fillRect(x,y,Math.max(bw*0.7,1),Math.max(h,1));
+  }
+  const fy=yOf(lastFloor);
+  ctx.strokeStyle='#f59e0b';ctx.setLineDash([6,4]);ctx.beginPath();
+  ctx.moveTo(padL,fy);ctx.lineTo(W-padR,fy);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#b45309';ctx.textAlign='left';
+  ctx.fillText('底噪 '+lastFloor.toFixed(3),padL+4,fy-4);
+  if(m.spikeAt>=0){
+    const x=padL+m.spikeAt*bw;
+    ctx.fillStyle='#dc2626';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.beginPath();ctx.moveTo(x,padT+14);ctx.lineTo(x-6,padT+2);ctx.lineTo(x+6,padT+2);ctx.fill();
+    ctx.fillText('冲击 0.31',Math.min(Math.max(x,padL+30),W-padR-34),padT-0.5);
+  }
+  const sh=6;
+  for(let i=0;i<N;i++){
+    const v=m.a[i];
+    ctx.fillStyle= v>=ACTIVE_MIN?'#22c55e':(v>=STILL_MAX?'#fbbf24':'#cbd5e1');
+    ctx.fillRect(padL+i*bw,padT+ch+4,bw,sh);
+  }
+}
+function drawBreath(r){
+  const cv=document.getElementById('breathChart'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,padL=64,padR=8,padT=8,padB=8;
+  const cw=W-padL-padR, ch=H-padT-padB;
+  ctx.clearRect(0,0,W,H);
+  const yOf=v=> padT+ch-(Math.min(v,BR_TOP)/BR_TOP)*ch;
+  const bands=[[0,BR_LOST,'#fef2f2'],[BR_LOST,BR_SLOW,'#fff7ed'],[BR_SLOW,BR_MAX,'#f0fdf4'],[BR_MAX,BR_TOP,'#fff7ed']];
+  bands.forEach(([lo,hi,c])=>{ ctx.fillStyle=c;ctx.fillRect(padL,yOf(hi),cw,yOf(lo)-yOf(hi)); });
+  ctx.strokeStyle='#86efac';ctx.setLineDash([4,4]);
+  [8,BR_MAX].forEach(v=>{ctx.beginPath();ctx.moveTo(padL,yOf(v));ctx.lineTo(W-padR,yOf(v));ctx.stroke();});
+  ctx.setLineDash([]);
+  ctx.font='10px sans-serif';ctx.fillStyle='#9ca3af';ctx.textAlign='right';
+  [[0,'0'],[BR_LOST,'3 衰减'],[BR_SLOW,'8'],[BR_MAX,'20 加快线'],[BR_TOP,'30']].forEach(([v,t])=>{ ctx.fillText(t,padL-6,yOf(v)+3); });
+  const bw=cw/N;
+  ctx.strokeStyle='#16a34a';ctx.lineWidth=2;ctx.beginPath();
+  let prev=null;
+  for(let i=0;i<N;i++){
+    if(r[i]==null){prev=null;continue;}
+    const x=padL+i*bw,y=yOf(r[i]);
+    if(prev&&i-prev.i<=3){ ctx.lineTo(x,y); } else { ctx.moveTo(x,y); ctx.lineTo(x,y); }
+    prev={i};
+  }
+  ctx.stroke();
+  for(let i=0;i<N;i++){
+    if(r[i]==null)continue;
+    const x=padL+i*bw,y=yOf(r[i]);
+    let c='#16a34a';
+    if(r[i]<BR_LOST)c='#ef4444';else if(r[i]<BR_SLOW||r[i]>BR_MAX)c='#fb923c';
+    ctx.fillStyle=c;
+    if(i%2===0){ctx.beginPath();ctx.arc(x,y,2.4,0,7);ctx.fill();}
+  }
+  ctx.lineWidth=1;
+}
+
+const stepsFall=[
+  {name:'现场语音询问',desc:'设备正在播放：「检测到异常，您还好吗？需要帮助请回应」',tag:'已完成 · 10秒无回应',cls:'done'},
+  {name:'呼吸二次确认',desc:'呼吸 9→22 次/分，持续加快 —— 确认需要帮助',tag:'已确认',cls:'done'},
+  {name:'通知你（子女）',desc:'APP 推送 + 短信已送达',tag:'进行中',cls:'doing'},
+  {name:'拨打你的电话',desc:'若 60 秒内未回应推送，自动拨打',tag:'待执行',cls:'todo'},
+  {name:'联系第二顺位',desc:'邻居王阿姨（已绑定备用钥匙）',tag:'待执行',cls:'todo'},
+  {name:'转接专业响应 / 120',desc:'可自定义是否启用',tag:'待执行',cls:'todo'},
+];
+
+const sceneText={
+  rest:{cls:'',emoji:'🛋️',main:'静坐休憩中 · 呼吸平稳',
+    sub:'已安静休息 23 分钟，呼吸 12 次/分，一切正常',
+    meta:'<span class="pill g">呼吸 12 次/分</span><span class="pill">运动幅度 平稳</span><span class="pill">客厅</span>',
+    mNow:'当前 0.01 · 平稳',bNow:'12 次/分 · 平稳',fall:false},
+  active:{cls:'',emoji:'🚶',main:'活动中',
+    sub:'正在走动 · 呼吸监测暂停（活动中测不准，停下后自动恢复）',
+    meta:'<span class="pill o">呼吸 暂停测量</span><span class="pill g">运动幅度 0.24</span><span class="pill">客厅</span>',
+    mNow:'当前 0.24 · 活动',bNow:'暂停（活动中）',fall:false},
+  fall:{cls:'danger',emoji:'⚠️',main:'疑似跌倒 · 请确认',red:true,
+    sub:'1 分钟前检测到冲击，呼吸明显加快，老人 10 秒未回应语音询问',
+    meta:'<span class="pill r">冲击峰值 0.31</span><span class="pill o">呼吸 9→22 次/分</span><span class="pill r">语音无回应</span>',
+    mNow:'当前 0.01 · 静止',bNow:'22 次/分 · 加快',fall:true},
+};
+function setScene(s){
+  document.querySelectorAll('.demo button').forEach(b=>{
+    b.classList.toggle('on', b.textContent.includes({rest:'静坐',active:'活动',fall:'跌倒'}[s]));
+  });
+  const t=sceneText[s];
+  const card=document.getElementById('statusCard');
+  card.className='status-card '+t.cls;
+  document.getElementById('statusEmoji').textContent=t.emoji;
+  const m=document.getElementById('statusMain');
+  m.textContent=t.main; m.className='status-main'+(t.red?' red':'');
+  document.getElementById('statusSub').textContent=t.sub;
+  document.getElementById('statusMeta').innerHTML=t.meta;
+  document.getElementById('motionNow').textContent=t.mNow;
+  document.getElementById('breathNow').textContent=t.bNow;
+  document.getElementById('evidence').style.display=t.fall?'block':'none';
+  const rc=document.getElementById('respCard');
+  rc.classList.toggle('hidden',!t.fall);
+  if(t.fall){
+    document.getElementById('steps').innerHTML=stepsFall.map(st=>
+      `<div class="step">
+        <div class="step-dot ${st.cls}">${st.cls==='done'?'✓':st.cls==='doing'?'⋯':'○'}</div>
+        <div class="step-body">
+          <div class="step-name">${st.name}<span class="step-tag ${st.cls==='done'?'tag-done':st.cls==='doing'?'tag-doing':'tag-todo'}">${st.tag}</span></div>
+          <div class="step-desc">${st.desc}</div>
+        </div>
+      </div>`).join('');
+  }
+  drawMotion(genMotion(s));
+  drawBreath(genBreath(s));
+}
+setScene('rest');
+</script>
+</body>
+</html>

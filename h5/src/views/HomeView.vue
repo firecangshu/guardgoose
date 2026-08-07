@@ -1,185 +1,51 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+/** 守护页（v4 样稿落地版）：语义三态状态条 + 双证据线 + 响应措施时间线
+ * + 双数据表（运动分段压缩 Y 轴 / 呼吸医学色带，正常带上限随档案修正）。
+ * 双证据线铁律：运动突增 + 呼吸变化同时成立才预警；呼吸是第一参照物。 */
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { showToast, showDialog, showConfirmDialog, closeDialog } from 'vant'
 import { useGuardianStore } from '../stores/guardian'
+import { api } from '../services/api'
 
 const store = useGuardianStore()
-/** 折叠详情区：探测器诊断，默认收起，首屏只留核心数据；事件统一在事件库看 */
 const detailOpen = ref<string[]>([])
 
-onMounted(() => store.init())
+onMounted(() => {
+  store.init()
+  nextTick(drawAll)
+})
 
-/** 展开探测器面板时拉取诊断数据 */
 async function onCollapseChange(names: string[]) {
   if (names.includes('device')) await store.loadDiagnosis()
 }
 
-/** 手动刷新：去缓存强拉最新数据，并提示是否卡住 */
 async function onRefresh() {
   showToast(await store.refreshAll())
 }
 
-/** 大卡信号标签：仿手机信号格隐喻，格数表强度、实心/空心分真假——
- * 接入中（真实接入刚开启，检测中）/ 真实信号（满格绿）/ 信号弱（2格橙）/
- * 无信号（全灰）/ 虚拟信号（满格但空心蓝描边）/ 待机（两接入都未开启） */
-const signalInfo = computed(() => {
-  if (store.realEnabled) {
-    if (store.deviceState === '') return { kind: 'connecting', bars: 0, text: '真实信号接入中' }
-    if (store.deviceState === 'connected') return { kind: 'real', bars: 4, text: '真实信号' }
-    if (store.deviceState === 'weak') return { kind: 'weak', bars: 2, text: '信号弱' }
-    return { kind: 'none', bars: 0, text: '无信号' }
-  }
-  if (store.demoEnabled) {
-    if (store.demoTransition) {
-      // 重新接入剧本：先“无信号”（全灰），再“接入中”（呼吸动画）
-      if (store.demoTransLost) return { kind: 'none', bars: 0, text: '无信号' }
-      return { kind: 'connecting', bars: 0, text: store.demoTransition }
-    }
-    return { kind: 'virtual', bars: 4, text: '虚拟信号' }
-  }
-  if (store.standby) {
-    return { kind: 'standby', bars: 0, text: '待机' }
-  }
-  return { kind: 'none', bars: 0, text: '无信号' }
-})
-
-/** 真实接入开关（优先级最高，后端自动关演示） */
+/* ---- 接入控制（真实接入 > 演示场景 > 待机） ---- */
 async function onRealChange(v: boolean | string) {
   showToast(await store.toggleReal(Boolean(v)))
 }
-
-/** 演示开关：开启时默认接入第一个场景 */
 async function onDemoChange(v: boolean | string) {
   const first = store.demoScenarios[0]?.scenario || ''
   showToast(await store.toggleDemo(Boolean(v), first))
 }
-
-/** 切换演示场景 */
 async function onPickScenario(s: string) {
   showToast(await store.toggleDemo(true, s))
 }
-
-/* ---- 告警并入守护页：当前告警置顶展示，处置动作随身可用 ---- */
-const ALERT_LEVEL_COLOR: Record<string, string> = {
-  info: '#1989fa',
-  yellow: '#ff9f00',
-  red: '#ee0a24',
-  black: '#000000',
-}
-async function handleAlertCall120() {
-  // 直接跳转拨号 120
-  window.location.href = 'tel:120'
-}
-/** 紧急联系三级降级拨打：第一个打不通自动切第二个，再打不通切第三个。
- *  每级限时等待，超时无应答自动降级；也可手动点“打不通”提前切换。 */
-const EMERGENCY_CALL_TIMEOUT = 8000
-const EMERGENCY_LABELS = ['第一', '第二', '第三']
-
-async function handleAlertCallEmergency() {
-  const phones = (store.profile?.emergency_phones || []).filter(p => p).slice(0, 3)
-  if (!phones.length) {
-    showDialog({ title: '紧急联系', message: `未填写紧急电话，正在拨打${store.elderName}的电话...` })
-    return
-  }
-  await callEmergencyStep(phones, 0)
-}
-
-async function callEmergencyStep(phones: string[], index: number) {
-  if (index >= phones.length) {
-    showDialog({
-      title: '紧急联系',
-      message: '三个紧急电话均未接通，请直接拨打120或联系邻居、社区上门查看。',
-    })
-    return
-  }
-  const phone = phones[index]
-  const last = index === phones.length - 1
-  // 限时等待：超时无应答自动降级到下一个号码
-  let autoDowngraded = false
-  const timer = setTimeout(() => {
-    autoDowngraded = true
-    closeDialog()
-    callEmergencyStep(phones, index + 1)
-  }, EMERGENCY_CALL_TIMEOUT)
-  try {
-    // 确认=打不通提前切换，取消=挂断终止整条链
-    const notReached = await showConfirmDialog({
-      title: `紧急联系（${EMERGENCY_LABELS[index]}个）`,
-      message: `正在拨打 ${phone}...${last ? '' : '\n无应答将自动切换下一个号码'}`,
-      confirmButtonText: '打不通',
-      cancelButtonText: '挂断',
-    })
-    clearTimeout(timer)
-    if (!autoDowngraded && notReached) {
-      await callEmergencyStep(phones, index + 1)
-    }
-  } catch {
-    // 用户点“挂断”终止降级链；或超时已自动降级，不重复处理
-    clearTimeout(timer)
-  }
-}
-
-/** 真实接入信号检测三态：开启后先轮询探测信号，得出三种结果——
- * ① 接上了·信号良好（connected）
- * ② 没接上·信号微弱（weak）
- * ③ 没信号（disconnected）
- * ②③ 立即提醒核查信号问题；30 秒仍未恢复再催办一次，
- * 明示可能影响监测效果；恢复良好后全部重置 */
-const realAlerted = ref(false)
-const realWarned = ref(false)
-let warnTimer: ReturnType<typeof setTimeout> | null = null
-const REAL_FOLLOWUP_MS = 30000
-function clearWarnTimer() {
-  if (warnTimer) { clearTimeout(warnTimer); warnTimer = null }
-}
-watch(() => [store.realEnabled, store.deviceState] as const, ([real, state]) => {
-  if (!real) {  // 真实接入关闭：提醒机制全部归位
-    realAlerted.value = false; realWarned.value = false; clearWarnTimer()
-    return
-  }
-  if (state === 'connected') {  // ① 接上了·信号良好
-    if (realAlerted.value) showToast('信号已恢复良好，监测正常运行')
-    realAlerted.value = false; realWarned.value = false; clearWarnTimer()
-    return
-  }
-  if (!state) return  // 首次检测尚未返回，等轮询结果
-  // ②③ 异常态：首次发现立即提醒核查，并自动展开诊断面板
-  if (!realAlerted.value) {
-    realAlerted.value = true
-    if (!detailOpen.value.includes('device')) detailOpen.value = [...detailOpen.value, 'device']
-    store.loadDiagnosis()
-    showToast(state === 'weak'
-      ? '信号微弱（不良）：请核查网络与探测器收发两端'
-      : '未检测到探测器信号：请核查设备供电与网络')
-    // 30 秒后若仍未恢复 → 催办提醒，明示影响监测效果
-    clearWarnTimer()
-    warnTimer = setTimeout(() => {
-      if (!store.realEnabled || store.deviceState === 'connected') return
-      if (realWarned.value) return
-      realWarned.value = true
-      showToast('信号问题持续未恢复，可能影响监测效果，请尽快核查网络与设备')
-    }, REAL_FOLLOWUP_MS)
-  }
-}, { immediate: true })
-onUnmounted(clearWarnTimer)
-
-/** 当前演示场景名（解读台开播日志用） */
 const currentScenarioLabel = computed(() =>
   store.demoScenarios.find(s => s.scenario === store.demoScenario)?.label || '未选择')
-
-/** 场景长条：左侧展示当前场景状态（长条+四格位置指示），
- * 右侧切换键按顺序循环切换四个场景，切一个走一次重接入剧本 */
 const scenarioIndex = computed(() =>
   store.demoScenarios.findIndex(s => s.scenario === store.demoScenario))
-/** 场景主色：随风险程度加深，长条左侧色带一眼分级 */
 const SCENARIO_COLORS: Record<string, string> = {
-  test_normal_motion: '#07c160',
-  day_fall: '#ff976a',
-  day_zone2_timeout: '#ee0a24',
-  day_breathing_lost: '#82101f',
+  demo_absent: '#6b7280',
+  demo_active: '#16a34a',
+  demo_rest: '#2563eb',
+  demo_fall_moving: '#dc2626',
+  demo_fall_still: '#b91c1c',
 }
-const scenarioColor = computed(() =>
-  SCENARIO_COLORS[store.demoScenario] || '#969799')
+const scenarioColor = computed(() => SCENARIO_COLORS[store.demoScenario] || '#969799')
 function onNextScenario() {
   const list = store.demoScenarios
   if (!list.length) return
@@ -187,228 +53,517 @@ function onNextScenario() {
   onPickScenario(next.scenario)
 }
 
-/* ---- 信号解读台：控制台式滚动日志，固定在信号展示框下方 ----
- * 规则：平稳状态不解读（不打扰）；异常波动自动解读 + 智能分析 + 决策建议 */
-interface LogEntry {
-  id: number
-  time: string
-  level: 'info' | 'warn' | 'danger'
-  text: string
-  analysis?: string
-  advice?: string
-}
-const logs = ref<LogEntry[]>([])
-let logSeq = 0
-/** 解读台展开状态：默认收起——常驻只显示最近两行，展开看全部细节 */
-const consoleOpen = ref(false)
-const consoleDisplayLogs = computed(() =>
-  consoleOpen.value ? logs.value : logs.value.slice(-2))
-function pushLog(level: LogEntry['level'], text: string, analysis?: string, advice?: string) {
-  const t = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  logs.value.unshift({
-    id: ++logSeq,
-    time: `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`,
-    level, text, analysis, advice,
-  })
-  if (logs.value.length > 30) logs.value.pop()  // 只留最近 30 条，防内存溢长
-}
-
-/** 守护等级变化解读：升级必解读，降回平稳只报一句“解除” */
-watch(() => store.guardZone, (z, prev) => {
-  if (!store.monitoringLive || z === prev || prev === undefined) return
-  if (z <= 0) {
-    if (prev > 0) pushLog('info', '异常解除 · 信号波动回归平稳区间，恢复静默采集')
-    return  // 平稳状态不解读
+/** 大卡信号标签：仿手机信号格隐喻 */
+const signalInfo = computed(() => {
+  if (store.realEnabled) {
+    if (store.deviceState === '') return { kind: 'connecting', bars: 0, text: '真实信号接入中' }
+    if (store.deviceState === 'connected') return { kind: 'real', bars: 4, text: '信号正常' }
+    if (store.deviceState === 'weak') return { kind: 'weak', bars: 2, text: '信号弱' }
+    return { kind: 'none', bars: 0, text: '无信号' }
   }
-  const rate = store.breathingRate > 0 ? `${store.breathingRate} 次/分` : '暂无读数'
-  const inten = store.intensity.toFixed(2)
-  if (z === 1) {
-    pushLog('warn', '监测到轻微异常波动',
-      `呼吸${store.breathingInfo.label}（${rate}），活动强度 ${inten}，波动超出常态区间`,
-      '系统持续观察中，暂无需介入；若波动升级会立即在此提示')
-  } else if (z === 2) {
-    pushLog('warn', '疑似跌倒 · 已进入语音确证流程',
-      '信号出现剧烈冲击后持续静止，符合跌倒波形特征，正在向老人发起语音问询',
-      '请留意语音确证结果；如长时间无回应，建议直接电话联系')
-  } else if (z === 3) {
-    pushLog('danger', '确认异常 · 已触发告警',
-      `跌倒或呼吸异常成立（呼吸${store.breathingInfo.label}，${rate}）`,
-      '请立即电话确认老人状况，联系不上时请就近亲属或邻居上门查看')
-  } else {
-    pushLog('danger', '紧急 · 呼吸消失或多项异常叠加',
-      '长时间未检测到呼吸起伏，属最高级别风险信号',
-      '请立即拨打 120，并同步通知就近亲属，保持电话持续呼叫')
+  if (store.demoEnabled) {
+    if (store.demoTransition) {
+      if (store.demoTransLost) return { kind: 'none', bars: 0, text: '无信号' }
+      return { kind: 'connecting', bars: 0, text: store.demoTransition }
+    }
+    return { kind: 'virtual', bars: 4, text: '演示信号 · 信号良好' }
   }
+  if (store.standby) return { kind: 'standby', bars: 0, text: '待机' }
+  return { kind: 'none', bars: 0, text: '无信号' }
 })
 
-/** 呼吸节律变化解读：异常即报，恢复只报一句 */
-watch(() => store.breathingState, (s, prev) => {
-  if (!store.monitoringLive || s === prev || prev === undefined) return
-  const rate = store.breathingRate > 0 ? `${store.breathingRate} 次/分` : '暂无读数'
-  if (s === 'normal') {
-    if (prev && prev !== 'normal') pushLog('info', `呼吸节律恢复正常（${rate}）`)
+/** 探测器桥接状态：置于接入控制与显示盘之间，接入信号后先看桥接成功没。
+ * 真实接入显示真实情况；演示接入按剧本演（接入检测中 → 接入成功 · 信号良好常驻） */
+const bridgeVM = computed(() => {
+  if (store.offline) return { icon: 'warning-o', color: '#ee0a24', text: '已断开 · 守护服务不可达', sub: '请检查边缘网关电源与网络后重连' }
+  if (store.standby) return { icon: 'pause-circle-o', color: '#969799', text: '待机 · 未接入', sub: '开启真实接入或演示接入后开始桥接检测' }
+  if (store.realEnabled) {
+    if (store.connecting) return { icon: 'wifi', color: '#2563eb', text: '接入检测中…', sub: '真实信号接入 · 显示真实情况' }
+    if (store.deviceState === 'connected') return { icon: 'wifi', color: '#07c160', text: '接入成功 · 信号良好', sub: '真实信号接入 · 显示真实情况' }
+    if (store.deviceState === 'weak') return { icon: 'warning-o', color: '#ff9f00', text: '信号不佳 · 数据延迟', sub: '真实信号接入 · 显示真实情况' }
+    return { icon: 'close', color: '#ee0a24', text: '已断开 · 无信号', sub: '真实信号接入 · 显示真实情况' }
+  }
+  // 演示接入：按剧本模拟接入过程
+  if (store.demoTransLost) return { icon: 'close', color: '#969799', text: '无信号 · 上一场景已断开', sub: '演示信号接入 · 按剧本模拟接入过程' }
+  if (store.demoTransition) {
+    const ok = store.demoTransition.startsWith('接入成功')
+    return { icon: 'wifi', color: ok ? '#07c160' : '#2563eb',
+      text: store.demoTransition === '接入检测中' ? '接入检测中…' : store.demoTransition,
+      sub: '演示信号接入 · 按剧本模拟接入过程' }
+  }
+  return { icon: 'wifi', color: '#07c160', text: '接入成功 · 信号良好', sub: '演示信号接入 · 按剧本演 · 信号常驻良好' }
+})
+
+/** 真实接入信号异常提醒（首次提醒 + 30 秒催办） */
+const realAlerted = ref(false)
+const realWarned = ref(false)
+let warnTimer: ReturnType<typeof setTimeout> | null = null
+function clearWarnTimer() {
+  if (warnTimer) { clearTimeout(warnTimer); warnTimer = null }
+}
+watch(() => [store.realEnabled, store.deviceState] as const, ([real, state]) => {
+  if (!real) { realAlerted.value = false; realWarned.value = false; clearWarnTimer(); return }
+  if (state === 'connected') {
+    if (realAlerted.value) showToast('信号已恢复良好，监测正常运行')
+    realAlerted.value = false; realWarned.value = false; clearWarnTimer()
     return
   }
-  if (s === 'elevated' || s === 'irregular') {
-    pushLog('warn', `呼吸节律异常 · ${store.breathingInfo.label}`,
-      `当前 ${rate}，超出安静状态 12~20 次/分的常态区间`,
-      '可能是活动、情绪或身体不适引起，建议电话问询确认')
-  } else if (s === 'shallow') {
-    pushLog('danger', '呼吸幅度明显减弱',
-      '胸廓起伏信号变浅，可能存在呼吸抑制风险',
-      '请尽快电话确认老人状态，无回应立即安排上门')
-  } else if (s === 'lost') {
-    pushLog('danger', '呼吸信号消失',
-      '持续未检测到呼吸起伏，系统同步进入紧急判定',
-      '请立即拨打 120 并通知就近亲属')
+  if (!state) return
+  if (!realAlerted.value) {
+    realAlerted.value = true
+    if (!detailOpen.value.includes('device')) detailOpen.value = [...detailOpen.value, 'device']
+    store.loadDiagnosis()
+    showToast(state === 'weak'
+      ? '信号微弱（不良）：请核查网络与探测器收发两端'
+      : '未检测到探测器信号：请核查设备供电与网络')
+    clearWarnTimer()
+    warnTimer = setTimeout(() => {
+      if (!store.realEnabled || store.deviceState === 'connected') return
+      if (realWarned.value) return
+      realWarned.value = true
+      showToast('信号问题持续未恢复，可能影响监测效果，请尽快核查网络与设备')
+    }, 30000)
   }
-})
+}, { immediate: true })
+onUnmounted(clearWarnTimer)
 
-/** 活动强度尖峰解读：冲入剧烈区即报（8 秒冷却防刷屏） */
-let lastSpikeAt = 0
-watch(() => store.intensity, (v) => {
-  if (!store.monitoringLive || v < 0.9) return
-  const now = Date.now()
-  if (now - lastSpikeAt < 8000) return
-  lastSpikeAt = now
-  pushLog('warn', `信号剧烈波动 · 强度 ${v.toFixed(2)} 冲入尖峰区`,
-    '瞬时冲击是跌倒的特征之一，系统正在核验后续是否持续静止',
-    '暂不必行动；若确认跌倒会立即升级告警并在此提示')
-})
-
-/** 信号源接入/中断解读：采集链路每次变化都记录在案 */
-watch(signalInfo, (nv, ov) => {
-  if (ov && nv.kind === ov.kind) return
-  switch (nv.kind) {
-    case 'connecting':
-      pushLog('info', `${nv.text} · 等待首个数据样本`)
-      break
-    case 'real':
-      pushLog('info', '真实信号已接入 · 探测器采集链路正常，开始实时解读')
-      break
-    case 'virtual':
-      pushLog('info', `演示信号已接入 · 场景「${currentScenarioLabel.value}」开始播放`)
-      break
-    case 'weak':
-      pushLog('warn', '信号微弱 · 采集质量下降',
-        '样本间隔拉长，实时解读可信度受限',
-        '请核查探测器供电与网络，持续未恢复将影响监测效果')
-      break
-    case 'none':
-      pushLog('warn', '信号中断 · 数据采集暂停', undefined,
-        store.demoEnabled ? '正在重新接入新场景，请稍等' : '请核查设备供电与网络')
-      break
-    case 'standby':
-      pushLog('info', '系统待机 · 数据采集停止，开启接入后恢复解读')
-      break
-  }
-})
-
-/** 常驻指标说明浮层：点 ⓘ 弹窗解释每个数字的含义，避免家属看不懂 */
-const showInfo = ref(false)
-const infoTitle = ref('')
-const infoLines = ref<{ k: string; v: string }[]>([])
-const INFO_MAP: Record<string, { title: string; lines: { k: string; v: string }[] }> = {
-  zone: {
-    title: '守护等级说明',
-    lines: [
-      { k: '正常', v: '呼吸与活动均在常态范围，无需关注' },
-      { k: '注意', v: '呼吸或活动出现轻微波动，系统持续观察' },
-      { k: '观察', v: '疑似异常，系统正在进行语音确证流程' },
-      { k: '告警', v: '检测到跌倒或呼吸异常，已通知家属确认' },
-      { k: '紧急', v: '呼吸消失或多项异常叠加，请立即联系老人或拨打 120' },
-    ],
-  },
-  breathing: {
-    title: '呼吸频率怎么看',
-    lines: [
-      { k: '原理', v: '通过 CSI 信号反射变化非接触感知胸廓起伏，无摄像头、不穿戴任何设备' },
-      { k: '正常', v: '安静状态成人一般 12~20 次/分' },
-      { k: '偏快 / 不规则', v: '频率超出常态或节律紊乱，可能不适，建议电话确认' },
-      { k: '浅弱', v: '呼吸幅度明显变小，需重点关注' },
-      { k: '消失', v: '长时间未检测到呼吸起伏，系统会立即触发红色告警' },
-    ],
-  },
-  intensity: {
-    title: '活动强度怎么看',
-    lines: [
-      { k: '含义', v: '由 CSI 信号波动幅度合成的数值，0 表示静止，越接近 1 表示动作越明显（走动、做家务等）' },
-      { k: '等级分区', v: '纵轴为等距刻度，四条等级带各占四分之一，刻度值即边缘判定引擎的真实阈值（实测校准）：静止(0~0.08)·轻微(0.08~0.25)·活动(0.25~0.90)·剧烈尖峰(≥0.90)，曲线落在哪个色带，边缘端就是同样的判定' },
-      { k: '跌倒特征', v: '跌倒瞬间强度冲过 0.90 尖峰线，随后持续落入静止区（倒地后不动），两条同时满足系统才会告警，避免误报' },
-    ],
-  },
+/* ---- 显示盘三态：无人 / 正常 / 告警（识别状态≠显示内容，只显示有价值的态） ---- */
+const ZONE_CN: Record<string, string> = {
+  living: '客厅', bedroom: '卧室', bathroom: '卫生间', kitchen: '厨房',
 }
-function openInfo(type: 'zone' | 'breathing' | 'intensity') {
-  const info = INFO_MAP[type]
-  infoTitle.value = info.title
-  infoLines.value = info.lines
-  showInfo.value = true
+/* 状态时长：正常态副文案「已 X 分钟」（前端累计，语义态变化即重新计时） */
+const stateSince = ref(Date.now())
+watch(() => [store.semanticState, store.present] as const, () => { stateSince.value = Date.now() })
+const nowTs = ref(Date.now())
+let tickTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  tickTimer = setInterval(() => { nowTs.value = Date.now() }, 1000)
+})
+onUnmounted(() => { if (tickTimer) clearInterval(tickTimer) })
+const stateDurationText = computed(() => {
+  const m = Math.floor((nowTs.value - stateSince.value) / 60000)
+  return m > 0 ? `已 ${m} 分钟` : '刚开始'
+})
+interface StatusVM {
+  cls: string          // '' 正常 / danger 告警 / quiet 无断言
+  emoji: string
+  main: string
+  mainRed: boolean
+  sub: string
 }
-
-/** 信号异常态统一引用 store.signalLost（信号依赖总闸，单一事实源），
- * 大卡状态、指标、曲线、配色全部同步切换，不拿旧值冒充现状 */
-
-/** 中央大卡背景：随守护等级渐变换色，一眼分级；
- * 离线=暗红、接入中/信号异常/待机=中性灰蓝（不冒充绿色正常） */
-const heroGradient = computed(() => {
-  if (store.offline) return 'linear-gradient(135deg, #3d1220, #6e1f2b)'
-  if (store.connecting || store.demoTransition || store.signalLost || store.standby) return 'linear-gradient(135deg, #23262e, #3a4150)'
-  switch (store.guardZone) {
-    case 0: return 'linear-gradient(135deg, #0b3d2e, #16714f)'
-    case 1: return 'linear-gradient(135deg, #46280a, #96601c)'
-    case 2: return 'linear-gradient(135deg, #4a3305, #a06e10)'
-    case 3: return 'linear-gradient(135deg, #4a0d14, #9c1a2e)'
-    case 4: return 'linear-gradient(135deg, #17171a, #82101f)'
-    default: return 'linear-gradient(135deg, #232a36, #3d4d63)'
+const statusVM = computed<StatusVM>(() => {
+  if (store.offline) {
+    return { cls: 'danger', emoji: '📡', main: '离线 · 守护服务不可达', mainRed: true,
+      sub: '请检查边缘网关电源与网络后，点右上角重连' }
   }
+  if (store.connecting) {
+    return { cls: 'quiet', emoji: '⏳', main: '真实信号接入中', mainRed: false,
+      sub: '正在检测探测器信号 · 结果即将更新' }
+  }
+  if (store.demoTransition) {
+    return { cls: 'quiet', emoji: '⏳',
+      main: store.demoTransLost ? '无信号 · 重新接入' : store.demoTransition, mainRed: false,
+      sub: store.demoTransLost ? '上一场景已断开 · 正在重新接入新剧本' : '场景数据即将接入，实时状态马上更新' }
+  }
+  if (store.signalLost) {
+    return { cls: 'danger', emoji: '📶', main: '信号异常 · 监测暂停', mainRed: false,
+      sub: `${store.deviceState === 'weak' ? '信号微弱' : '未检测到探测器信号'} · 请核查设备供电与网络` }
+  }
+  if (store.standby) {
+    return { cls: 'quiet', emoji: '🌙', main: '系统待机中', mainRed: false,
+      sub: '开启上方「真实接入」或「演示接入」后，开始实时守护' }
+  }
+  // 监测链路实时可用 → 显示盘三态：告警 > 无人 > 正常
+  if (store.semanticState === 'fall' || store.guardZone >= 3) {
+    let sub = '双证据线成立 · 确证链启动'
+    if (store.guardZone >= 4) sub = '两轮无人应答 · 已进入危机状态，递进措施执行中'
+    else if (store.voiceConfirmState === 'help') sub = '老人求助（或检测到呻吟）· 告警已升级'
+    else if (store.voiceConfirmState === 'ok') sub = '老人回应正常 · 正在解除'
+    else if (store.voiceRound === 2) sub = `第 1 轮无回应 · 已报警并发起第 2 轮询问（${store.voiceTimeoutS}s），请尽快确认`
+    else if (store.voiceConfirmState === 'waiting') sub = '已发起语音询问（第 1 轮），等待老人回应…'
+    return { cls: 'danger', emoji: '🚨', main: '告警 · 疑似跌倒', mainRed: true, sub }
+  }
+  if (!store.present) {
+    return { cls: 'quiet', emoji: '🚪', main: '无人 · 环境安静', mainRed: false,
+      sub: '未探测到人体活动与呼吸信号 · 呼吸表留白不断言' }
+  }
+  if (store.semanticState === 'active') {
+    return { cls: '', emoji: '✅', main: '正常', mainRed: false,
+      sub: `有人 · 移动中 · ${stateDurationText.value}` }
+  }
+  if (store.semanticState === 'rest') {
+    return { cls: '', emoji: '✅', main: '正常', mainRed: false,
+      sub: `有人 · 休憩中 · 呼吸平稳 · ${stateDurationText.value}` }
+  }
+  return { cls: '', emoji: '✅', main: '正常', mainRed: false,
+    sub: '有人 · 状态识别中' }
 })
 
-/** 活动强度曲线坐标系：等距刻度制——四个等级带各占 1/4 高度，
- * 刻度值标真实阈值（0.08/0.25/0.90，与边缘判定引擎一致）；
- * 曲线用同一分段线性映射，波动与色带严格匹配 */
-const CHART_W = 320
-const CHART_H = 60
-/** 分段映射锚点：真实值 v -> 归一化高度 y（四带等分） */
-const Y_BREAKS = [
-  { v: 0, y: 0 },
-  { v: 0.08, y: 0.25 },
-  { v: 0.25, y: 0.5 },
-  { v: 0.9, y: 0.75 },
-  { v: 1.0, y: 1.0 },
-]
-function mapY(v: number): number {
-  const x = Math.min(Math.max(v, 0), 1)
-  for (let i = 1; i < Y_BREAKS.length; i++) {
-    if (x <= Y_BREAKS[i].v) {
-      const a = Y_BREAKS[i - 1]
-      const b = Y_BREAKS[i]
-      return a.y + ((b.y - a.y) * (x - a.v)) / (b.v - a.v)
+/** 状态条左侧色带：随守护等级加深 */
+const statusBorderColor = computed(() => {
+  if (store.semanticState === 'fall' || store.guardZone >= 3) return '#dc2626'
+  if (store.guardZone === 2) return '#f59e0b'
+  if (store.guardZone === 1) return '#fbbf24'
+  if (statusVM.value.cls === 'quiet') return '#9ca3af'
+  return '#16a34a'
+})
+
+/** 档案修正痕迹小字（千人千档：只松防误报，不动物理阈值） */
+const adjustNotes = computed(() => {
+  const adj = store.profileAdjustments || {}
+  const notes: string[] = []
+  if (adj.br_elevated_adjust > 0) notes.push(`呼吸正常带已按档案调整至 ≤${store.breathingBandMax} 次/分`)
+  if (adj.skip_voice) notes.push('已按档案跳过现场语音询问')
+  else if (typeof adj.voice_timeout === 'number' && adj.voice_timeout < 90) notes.push(`语音等待已按档案缩短至 ${adj.voice_timeout} 秒`)
+  if (adj.br_lost_confirm_s > 0) notes.push(`呼吸消失确认已按档案放宽至 ${adj.br_lost_confirm_s} 秒（病态暂停防误报）`)
+  if (adj.active_min_adjust < 0) notes.push('运动判定带已按档案下探（动作幅度偏低）')
+  return notes.join(' · ')
+})
+
+/* ---- 双证据线（疑似跌倒/红区以上才展示） ---- */
+const showEvidence = computed(() =>
+  store.monitoringLive && (store.semanticState === 'fall' || store.guardZone >= 3))
+/** 证据线 1 · 运动突增：近期强度峰值是否越过相对尖峰阈值 */
+const motionPeak = computed(() => store.intensityHistory.length
+  ? Math.max(...store.intensityHistory) : store.intensity)
+const evidenceMotionOk = computed(() => motionPeak.value >= 0.22)
+/** 证据线 2 · 呼吸变化：加快/浅弱/消失任一成立（正常带上限随档案修正） */
+const evidenceBreathOk = computed(() =>
+  store.breathingState !== 'normal' || store.breathingRate > store.breathingBandMax)
+const SPIKE_THRESHOLD = 0.22
+
+/* ---- 递进式响应时间线（8 步：双证据→两轮确证→危机递进措施） ---- */
+interface RespStep { name: string; desc: string; tag: string; cls: 'done' | 'doing' | 'todo' | 'skip'; action?: string }
+
+/* 危机递进模拟：进入危机后每 8s 点亮一级（拨打/监控/第二顺位/120） */
+const crisisSince = ref(0)
+watch(() => store.guardZone, (z) => {
+  if (z >= 4) { if (!crisisSince.value) crisisSince.value = Date.now() }
+  else crisisSince.value = 0
+})
+const crisisElapsed = computed(() => crisisSince.value
+  ? Math.floor((nowTs.value - crisisSince.value) / 1000) : 0)
+
+/* 监控排查：平时不开，危机态下手动开启 */
+const monitorChecked = ref(false)
+watch(() => store.guardZone, (z) => { if (z <= 0) monitorChecked.value = false })
+function onMonitorCheck() { monitorChecked.value = true }
+
+const respSteps = computed<RespStep[]>(() => {
+  const adj = store.profileAdjustments || {}
+  const z = store.guardZone
+  const vc = store.voiceConfirmState
+  const round = store.voiceRound
+  const elapsed = crisisElapsed.value
+  const steps: RespStep[] = []
+  // 1 双证据判定（两条证据各自展示，随监测实时刷新）
+  const brText = store.breathingRate > 0
+    ? `${store.breathingRate} 次/分 · ${store.breathingInfo.label}` : '呼吸信号消失'
+  steps.push({ name: '双证据判定',
+    desc: `冲击峰值 ${motionPeak.value.toFixed(2)}（阈值 ${SPIKE_THRESHOLD}）· 呼吸 ${brText}`,
+    tag: '成立', cls: 'done' })
+  // 2 语音唤醒询问（第 1 轮）
+  if (adj.skip_voice) {
+    steps.push({ name: '语音唤醒询问', desc: '档案含心脑血管病史 · 跳过语音直接升级，避免延误', tag: '已按档案跳过', cls: 'skip' })
+  } else if (vc === 'ok') {
+    steps.push({ name: '语音唤醒询问', desc: '老人回应「没事」，告警解除，事件库留痕', tag: '回应正常 · 已解除', cls: 'done' })
+  } else if (vc === 'help') {
+    steps.push({ name: '语音唤醒询问', desc: '老人回应「救我」（或检测到呻吟），加强告警等级', tag: '已求助 · 已升级', cls: 'done' })
+  } else if (vc === 'waiting' && round === 1) {
+    steps.push({ name: '语音唤醒询问', desc: `设备播放「您还好吗？」，等待回应（${store.voiceTimeoutS} 秒）`, tag: '进行中', cls: 'doing' })
+  } else if (round >= 2 || z >= 4) {
+    steps.push({ name: '语音唤醒询问', desc: '第 1 轮询问超时，老人无回应', tag: '无人应答', cls: 'done' })
+  } else {
+    steps.push({ name: '语音唤醒询问', desc: '双证据线成立后自动发起', tag: '待执行', cls: 'todo' })
+  }
+  // 3 提升级别 · 再次询问 + 报警通知（第 2 轮，等待时长随档案）
+  if (vc === 'ok' || vc === 'help') {
+    steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '老人已回应，无需第 2 轮', tag: '未触发', cls: 'todo' })
+  } else if (round === 2 && vc === 'waiting') {
+    steps.push({ name: '提升级别 · 再次询问 + 报警通知',
+      desc: `倒计时 ${store.voiceTimeoutS} 秒 · ${store.alertAcked ? '家人已知晓' : '报警响铃中，响至家人知晓'}`,
+      tag: store.alertAcked ? '已知晓' : '响铃中', cls: 'doing' })
+  } else if (z >= 4) {
+    steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '第 2 轮仍无人应答，进入危机状态', tag: '仍无人应答', cls: 'done' })
+  } else {
+    steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '第 1 轮无回应时自动启动，等待时长随档案', tag: '待执行', cls: 'todo' })
+  }
+  // 4 紧急联系子女 · 进入危机状态
+  steps.push({ name: '紧急联系子女 · 进入危机状态', desc: 'APP 推送 + 短信送达，确保监护人收到信息',
+    tag: z >= 4 ? '已送达' : '待执行', cls: z >= 4 ? 'done' : 'todo' })
+  // 5 拨打对方电话 / 唤醒
+  steps.push({ name: '拨打对方电话 / 唤醒', desc: '推送未回应时自动拨打',
+    tag: elapsed >= 8 ? '已拨打' : z >= 4 ? '进行中' : '待执行',
+    cls: elapsed >= 8 ? 'done' : z >= 4 ? 'doing' : 'todo' })
+  // 6 监控排查（平时不开，危机态手动开启）
+  steps.push(monitorChecked.value
+    ? { name: '监控排查', desc: '已开启摄像头查看现场（平时不开）', tag: '查看中', cls: 'done' }
+    : { name: '监控排查', desc: '平时不开 · 危机时可手动开启', tag: z >= 4 ? '可开启' : '待执行',
+        cls: z >= 4 ? 'doing' : 'todo', action: z >= 4 ? '开启监控排查' : '' })
+  // 7 联系第二顺位人（附近关系人上门排查）
+  steps.push({ name: '联系第二顺位人', desc: '附近关系人上门排查',
+    tag: elapsed >= 16 ? '已联系' : elapsed >= 8 ? '准备中' : '待执行',
+    cls: elapsed >= 16 ? 'done' : elapsed >= 8 ? 'doing' : 'todo' })
+  // 8 转接专业响应 / 120
+  steps.push({ name: '转接专业响应 / 120', desc: '确认是否直接转接急救（下方拨打120按钮）',
+    tag: elapsed >= 24 ? '待确认转接' : elapsed >= 16 ? '准备中' : '待执行',
+    cls: elapsed >= 24 ? 'doing' : elapsed >= 16 ? 'doing' : 'todo' })
+  return steps
+})
+
+/* ---- 告警链中的呼吸持续监测（巩固信息，趋势文案） ---- */
+const breathTrend = computed(() => {
+  const st = store.breathingState
+  if (st === 'lost') return { text: '呼吸消失 · 可能呼吸暂停，建议立即处置 · 持续监测中', cls: 'bad' }
+  if (st === 'shallow') return { text: '呼吸浅弱 · 持续监测中', cls: 'bad' }
+  const win = store.breathHistory.filter(r => r > 0).slice(-20)
+  if (win.length >= 5) {
+    const first = win[0], last = win[win.length - 1]
+    if (last - first >= 3 && last > store.breathingBandMax)
+      return { text: `气息紊乱加剧 · 呼吸急速 ${last} 次/分`, cls: 'bad' }
+    if (first - last >= 3)
+      return { text: `呼吸慢慢衰竭（${first} → ${last} 次/分）`, cls: 'bad' }
+    if (last > store.breathingBandMax)
+      return { text: `呼吸急促持续 ${last} 次/分`, cls: 'warn' }
+    return { text: `呼吸趋稳 ${last} 次/分 · 等待确证结果`, cls: 'ok' }
+  }
+  return { text: '呼吸持续监测中…', cls: 'ok' }
+})
+
+/* ---- 告警卡显示与解除小结（解除不瞬消，保留 30 秒后淡出） ---- */
+const respActive = ref(false)
+const alertStartTs = ref(0)
+const clearedInfo = ref<{ reason: string; durS: number; br: number } | null>(null)
+let clearedTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(() => store.latestAlert, (a) => {
+  if (a && a.level !== 'info' && store.monitoringLive) {
+    if (!respActive.value) alertStartTs.value = Date.now()
+    respActive.value = true
+    if (clearedInfo.value) {
+      clearedInfo.value = null
+      if (clearedTimer) { clearTimeout(clearedTimer); clearedTimer = null }
     }
   }
-  return 1
-}
-function fixedScalePath(data: number[]): string {
-  if (!data.length) return ''
-  const step = CHART_W / Math.max(data.length - 1, 1)
-  const points = data.map((v, i) =>
-    `${(i * step).toFixed(1)},${(CHART_H - mapY(v) * CHART_H).toFixed(1)}`,
-  )
-  return `M${points.join(' L')}`
-}
-const linePathD = computed(() => fixedScalePath(store.intensityHistory))
-const areaPathD = computed(() =>
-  linePathD.value ? `${linePathD.value} L${CHART_W},${CHART_H} L0,${CHART_H} Z` : '',
-)
+})
+watch(() => store.clearedSeq, () => {
+  if (!respActive.value) return
+  respActive.value = false
+  clearedInfo.value = {
+    reason: store.lastClearedReason,
+    durS: Math.max(1, Math.round((Date.now() - alertStartTs.value) / 1000)),
+    br: store.breathingRate,
+  }
+  if (clearedTimer) clearTimeout(clearedTimer)
+  clearedTimer = setTimeout(() => { clearedInfo.value = null }, 30000)
+})
+/* 场景切换/退出监测：告警卡与小结一并收起 */
+watch(() => [store.demoScenario, store.monitoringLive] as const, () => {
+  respActive.value = false
+  clearedInfo.value = null
+})
+onUnmounted(() => { if (clearedTimer) clearTimeout(clearedTimer) })
+const showRespCard = computed(() => respActive.value && store.monitoringLive)
 
-/** 活动强度等级分区：分界值与边缘判定引擎阈值严格对齐
- * （edge/config.py：STILL_MAX=0.08 / ACTIVE_MIN=0.25 / SPIKE_MIN=0.90，实测校准） */
-const LEVEL_BANDS = [
-  { from: 0.90, to: 1.0, name: '剧烈尖峰', color: 'rgba(255,107,107,.18)' },
-  { from: 0.25, to: 0.90, name: '活动', color: 'rgba(255,200,87,.15)' },
-  { from: 0.08, to: 0.25, name: '轻微', color: 'rgba(120,190,255,.15)' },
-  { from: 0.0, to: 0.08, name: '静止', color: 'rgba(255,255,255,.07)' },
-]
+/* 确证回应（含「检测到呻吟」等价 help 入口） */
+async function onVoiceRespond(answer: 'ok' | 'help') {
+  try {
+    await api.voiceRespond(answer)
+  } catch {
+    showToast('回应提交失败，请重试')
+  }
+}
+
+/* 家人已知晓：停止第二轮报警响铃 */
+async function onAck() {
+  await store.ackAlert()
+  showToast('已知晓，响铃已停止')
+}
+
+/** 误报处置：子女确认收到（后端解除告警链路） */
+async function onFalseAlarm() {
+  await store.confirmAlert()
+  showToast('已确认收到，告警已解除')
+}
+
+/* ---- 紧急呼叫 ---- */
+function handleAlertCall120() {
+  window.location.href = 'tel:120'
+}
+const EMERGENCY_CALL_TIMEOUT = 8000
+const EMERGENCY_LABELS = ['第一', '第二', '第三']
+async function handleAlertCallEmergency() {
+  const phones = (store.profile?.emergency_phones || []).filter(p => p).slice(0, 3)
+  if (!phones.length) {
+    showDialog({ title: '紧急联系', message: `未填写紧急电话，请先在档案页填写，或立即拨打${store.elderName}的电话` })
+    return
+  }
+  await callEmergencyStep(phones, 0)
+}
+async function callEmergencyStep(phones: string[], index: number) {
+  if (index >= phones.length) {
+    showDialog({ title: '紧急联系', message: '三个紧急电话均未接通，请直接拨打120或联系邻居、社区上门查看。' })
+    return
+  }
+  const phone = phones[index]
+  const last = index === phones.length - 1
+  let autoDowngraded = false
+  const timer = setTimeout(() => {
+    autoDowngraded = true
+    closeDialog()
+    callEmergencyStep(phones, index + 1)
+  }, EMERGENCY_CALL_TIMEOUT)
+  try {
+    const notReached = await showConfirmDialog({
+      title: `紧急联系（${EMERGENCY_LABELS[index]}个）`,
+      message: `正在拨打 ${phone}...${last ? '' : '\n无应答将自动切换下一个号码'}`,
+      confirmButtonText: '打不通',
+      cancelButtonText: '挂断',
+    })
+    clearTimeout(timer)
+    if (!autoDowngraded && notReached) await callEmergencyStep(phones, index + 1)
+  } catch {
+    clearTimeout(timer)
+  }
+}
+
+/* ---- 双数据表：canvas 绘制（阈值与边缘 config 对齐） ---- */
+const STILL_MAX = 0.05
+const ACTIVE_MIN = 0.15
+const BR_LOST = 3
+const BR_SLOW = 8
+const BR_TOP = 32
+const motionCanvas = ref<HTMLCanvasElement | null>(null)
+const breathCanvas = ref<HTMLCanvasElement | null>(null)
+
+/** 画布自适应：物理分辨率 = 实际显示尺寸 × dpr，绘图保持 700 逻辑坐标系。
+ * 轴文字/色带与卡片宽度永远成固定比例：窗口变化不拉伸变形、不跑出界面，高分屏不发虚。 */
+function fitCanvas(cv: HTMLCanvasElement, logicalW: number, logicalH: number) {
+  const dpr = window.devicePixelRatio || 1
+  const cssW = cv.clientWidth || logicalW
+  const cssH = Math.round(cssW * logicalH / logicalW)
+  const bw = Math.round(cssW * dpr)
+  const bh = Math.round(cssH * dpr)
+  if (cv.width !== bw) cv.width = bw
+  if (cv.height !== bh) cv.height = bh
+  if (cv.style.height !== `${cssH}px`) cv.style.height = `${cssH}px`
+  const ctx = cv.getContext('2d')
+  if (ctx) ctx.setTransform(bw / logicalW, 0, 0, bh / logicalH, 0, 0)
+  return ctx
+}
+
+function drawMotion() {
+  const cv = motionCanvas.value
+  if (!cv) return
+  const ctx = fitCanvas(cv, 700, 260)
+  if (!ctx) return
+  const data = store.intensityHistory
+  const W = 700, H = 260, padL = 62, padR = 8, padT = 8, padB = 16
+  const cw = W - padL - padR, ch = H - padT - padB
+  ctx.clearRect(0, 0, W, H)
+  // 分段压缩 Y 轴：静止带占 30% 高度放大微动，尖峰带压缩防顶破
+  const segs: [number, number, number][] = [
+    [0, STILL_MAX, 0.30], [STILL_MAX, ACTIVE_MIN, 0.25],
+    [ACTIVE_MIN, SPIKE_THRESHOLD, 0.15], [SPIKE_THRESHOLD, 1, 0.30]]
+  const yOf = (v: number) => {
+    let acc = 0
+    for (const [lo, hi, frac] of segs) {
+      if (v <= hi || hi === 1) { acc += (Math.min(v, hi) - lo) / (hi - lo) * frac; return padT + ch - acc * ch }
+      acc += frac
+    }
+    return padT
+  }
+  const bandCols = ['#f1f5f9', '#fefce8', '#f0fdf4', '#fef2f2']
+  let y0 = padT + ch
+  segs.forEach(([, , frac], k) => { const h = ch * frac; y0 -= h; ctx.fillStyle = bandCols[k]; ctx.fillRect(padL, y0, cw, h) })
+  ctx.font = '10px sans-serif'; ctx.fillStyle = '#9ca3af'; ctx.textAlign = 'right'
+  const ticks: [number, string][] = [[0, '0'], [STILL_MAX, '0.05'], [ACTIVE_MIN, '0.15'], [SPIKE_THRESHOLD, '0.22 突增'], [1, '1.0']]
+  for (const [v, t] of ticks) {
+    const y = yOf(v)
+    ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke()
+    ctx.fillText(t, padL - 6, y + 3)
+  }
+  if (!data.length) return
+  const bw = cw / data.length
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i], x = padL + i * bw, y = yOf(v), h = padT + ch - y
+    ctx.fillStyle = v >= SPIKE_THRESHOLD ? '#ef4444' : v >= ACTIVE_MIN ? '#22c55e' : '#cbd5e1'
+    ctx.fillRect(x, y, Math.max(bw * 0.7, 1), Math.max(h, 1))
+  }
+}
+
+function drawBreath() {
+  const cv = breathCanvas.value
+  if (!cv) return
+  const ctx = fitCanvas(cv, 700, 240)
+  if (!ctx) return
+  const data = store.breathHistory
+  const bandMax = store.breathingBandMax
+  const W = 700, H = 240, padL = 62, padR = 8, padT = 8, padB = 8
+  const cw = W - padL - padR, ch = H - padT - padB
+  ctx.clearRect(0, 0, W, H)
+  const yOf = (v: number) => padT + ch - (Math.min(v, BR_TOP) / BR_TOP) * ch
+  // 医学色带：正常带上限随档案修正（breathingBandMax）
+  const bands: [number, number, string][] = [
+    [0, BR_LOST, '#fef2f2'], [BR_LOST, BR_SLOW, '#fff7ed'],
+    [BR_SLOW, bandMax, '#f0fdf4'], [bandMax, BR_TOP, '#fff7ed']]
+  for (const [lo, hi, c] of bands) {
+    ctx.fillStyle = c; ctx.fillRect(padL, yOf(hi), cw, yOf(lo) - yOf(hi))
+  }
+  ctx.strokeStyle = '#86efac'; ctx.setLineDash([4, 4])
+  for (const v of [BR_SLOW, bandMax]) {
+    ctx.beginPath(); ctx.moveTo(padL, yOf(v)); ctx.lineTo(W - padR, yOf(v)); ctx.stroke()
+  }
+  ctx.setLineDash([])
+  ctx.font = '10px sans-serif'; ctx.fillStyle = '#9ca3af'; ctx.textAlign = 'right'
+  // 刻度文案收短防出界（「已按档案调整」痕迹已由状态条 adjustNotes 展示）
+  const ticks: [number, string][] = [[0, '0'], [BR_LOST, '3 衰减'], [BR_SLOW, '8'],
+    [bandMax, `${bandMax} 加快线`], [BR_TOP, '32']]
+  for (const [v, t] of ticks) ctx.fillText(t, padL - 6, yOf(v) + 3)
+  if (!data.length) return
+  const bw = cw / data.length
+  // 折线（0=暂未测到 → 断线留白，不做断言）
+  ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2; ctx.beginPath()
+  let prevIdx: number | null = null
+  for (let i = 0; i < data.length; i++) {
+    if (!data[i]) { prevIdx = null; continue }
+    const x = padL + i * bw, y = yOf(data[i])
+    if (prevIdx !== null && i - prevIdx <= 3) ctx.lineTo(x, y)
+    else ctx.moveTo(x, y)
+    prevIdx = i
+  }
+  ctx.stroke()
+  for (let i = 0; i < data.length; i++) {
+    if (!data[i]) continue
+    const x = padL + i * bw, y = yOf(data[i])
+    let c = '#16a34a'
+    if (data[i] < BR_LOST) c = '#ef4444'
+    else if (data[i] < BR_SLOW || data[i] > bandMax) c = '#fb923c'
+    ctx.fillStyle = c
+    if (i % 2 === 0) { ctx.beginPath(); ctx.arc(x, y, 2.4, 0, 7); ctx.fill() }
+  }
+  ctx.lineWidth = 1
+}
+
+function drawAll() {
+  drawMotion()
+  drawBreath()
+}
+watch(() => [store.lastSampleTime, store.breathingBandMax, store.monitoringLive], () => nextTick(drawAll))
+/* 窗口尺寸变化 → 按新壳宽重绘，保持图表与背景固定比例 */
+function onWinResize() { drawAll() }
+onMounted(() => window.addEventListener('resize', onWinResize))
+onUnmounted(() => window.removeEventListener('resize', onWinResize))
+
+const motionNow = computed(() => {
+  const v = store.intensity
+  const tag = v >= SPIKE_THRESHOLD ? '突增' : v >= ACTIVE_MIN ? '活动' : '平稳'
+  return `当前 ${v.toFixed(2)} · ${tag}`
+})
+const breathNow = computed(() => {
+  if (store.breathingRate > 0) return `${store.breathingRate} 次/分 · ${store.breathingInfo.label}`
+  return '暂未测到（活动打断或无呼吸信号）'
+})
 </script>
 
 <template>
@@ -434,8 +589,7 @@ const LEVEL_BANDS = [
       </div>
     </header>
 
-    <!-- 接入控制：真实接入 / 演示接入，都未开启时系统待机。
-         置于展示框上方：先接入信号，才谈得上观测 AI 分析后的展示与结论 -->
+    <!-- 接入控制：真实接入 / 演示接入，都未开启时系统待机 -->
     <div class="source-card">
       <div class="source-row">
         <div class="source-info">
@@ -445,24 +599,19 @@ const LEVEL_BANDS = [
           </div>
           <div class="source-desc">开启后自动关闭演示，探测器信号直接联动底层判定</div>
         </div>
-        <van-switch
-          :model-value="store.realEnabled" size="20px"
-          @update:model-value="onRealChange"
-        />
+        <van-switch :model-value="store.realEnabled" size="20px" @update:model-value="onRealChange" />
       </div>
       <div class="source-divider"></div>
       <div class="source-row">
         <div class="source-info">
           <div class="source-name">演示接入</div>
-          <div class="source-desc">接入代表性场景，智能体分析数据、评估情况，演示各种场景下的实时状态</div>
+          <div class="source-desc">接入代表性场景剧本，实时演示各种场景下的守护状态</div>
         </div>
         <van-switch
           :model-value="store.demoEnabled" size="20px"
-          :disabled="store.realEnabled"
-          @update:model-value="onDemoChange"
+          :disabled="store.realEnabled" @update:model-value="onDemoChange"
         />
       </div>
-      <!-- 场景长条：左侧展示当前场景状态，右侧切换键循环切换四个场景 -->
       <div v-if="store.demoEnabled" class="scenario-bar" :style="{ '--sc-color': scenarioColor }">
         <div class="scenario-bar-info">
           <span class="scenario-bar-title">{{ currentScenarioLabel }}</span>
@@ -477,248 +626,18 @@ const LEVEL_BANDS = [
       </div>
     </div>
 
-    <!-- 中央大卡：状态 + 呼吸频率 + 活动强度实时曲线 -->
-    <section class="hero" :style="{ background: heroGradient }">
-      <div class="hero-head">
-        <div class="hero-status">
-          <van-icon
-            :name="(store.connecting || store.demoTransition) ? 'loading' : store.standby ? 'pause-circle-o' : store.signalLost ? 'warning-o' : store.zoneInfo.icon"
-            color="#fff" size="24" :class="{ spinning: store.connecting || store.demoTransition }"
-          />
-          <div class="hero-status-text">
-            <span class="hero-status-label">
-              {{ store.offline ? '离线' : store.connecting ? '真实信号接入中'
-                : store.demoTransition ? (store.demoTransLost ? '无信号 · 重新接入' : store.demoTransition)
-                : store.signalLost
-                ? (store.deviceState === 'weak' ? '信号弱 · 监测暂停' : '无信号 · 监测暂停')
-                : store.standby ? '待机' : store.zoneInfo.label }}
-              <van-icon class="info-icon" name="question-o" size="14" @click="openInfo('zone')" />
-            </span>
-            <span class="hero-status-sub">
-              <template v-if="store.connecting">
-                正在检测探测器信号 · 结果即将更新
-              </template>
-              <template v-else-if="store.demoTransition">
-                {{ store.demoTransLost ? '上一场景已断开 · 正在重新接入' : '请稍等 · 正在接入场景数据' }}
-              </template>
-              <template v-else-if="store.realEnabled && store.deviceState !== 'connected'">
-                {{ store.deviceState === 'weak'
-                  ? '信号微弱（不良）· 请核查网络与收发两端'
-                  : '未检测到信号 · 请核查设备供电与网络' }}
-                · 持续未恢复可能影响监测效果
-              </template>
-              <template v-else-if="store.standby">
-                未开启接入 · 开启真实接入或演示接入后开始守护
-              </template>
-              <template v-else>
-                {{ store.present ? '家中有人' : '家中无人' }}
-                <template v-if="store.lastSampleTime"> · 更新于 {{ store.lastSampleTime }}</template>
-              </template>
-            </span>
-          </div>
-        </div>
-        <div class="hero-tools">
-          <!-- 信号标签：仿手机信号格，实心=真实/空心=虚拟/全灰=无信号，
-               设备状态每 8 秒轮询，格数与颜色自动跟随变化 -->
-          <div class="signal-tag" :class="signalInfo.kind">
-            <div class="signal-bars">
-              <span v-for="i in 4" :key="i" class="bar" :class="{ on: i <= signalInfo.bars }"></span>
-            </div>
-            <span class="signal-text">{{ signalInfo.text }}</span>
-          </div>
-          <van-icon
-            class="refresh-btn" name="replay" size="20" color="rgba(255,255,255,.85)"
-            :class="{ spinning: store.refreshing }"
-            @click="onRefresh()"
-          />
-        </div>
-      </div>
-
-      <!-- 离线时的重连操作 -->
-      <div class="hero-offline" v-if="store.offline">
-        <p>无法连接守护服务，实时判断已暂停。请检查边缘网关电源与网络后重试。</p>
-        <van-button type="danger" size="small" round plain :loading="store.refreshing" @click="onRefresh()">
-          重新连接
-        </van-button>
-      </div>
-
-      <!-- 信号异常：旧数据不可信，指标与曲线全部降级展示 -->
-      <div class="hero-lost" v-else-if="store.signalLost">
-        <van-icon name="warning-o" size="30" color="#ffc069" />
-        <p class="lost-title">{{ store.deviceState === 'weak' ? '信号微弱，实时监测已暂停' : '未检测到探测器信号，实时监测已暂停' }}</p>
-        <p class="lost-sub">以下指标为最后一次接收的数据，不代表当前状态；请核查设备供电与网络，系统持续自动检测，恢复后自动继续</p>
-        <p class="lost-time" v-if="store.lastSampleTime">最后数据更新于 {{ store.lastSampleTime }}</p>
-      </div>
-
-      <!-- 接入中：真实接入检测中 / 演示场景重新接入（无信号→接入中），不展示旧数据 -->
-      <div class="hero-connecting" v-else-if="store.connecting || store.demoTransition">
-        <van-icon :name="store.demoTransLost ? 'warning-o' : 'loading'" size="30" :color="store.demoTransLost ? '#ffb0a3' : '#a3d8ff'" :class="{ spinning: !store.demoTransLost }" />
-        <p class="connecting-title">{{ store.connecting ? '真实信号接入中'
-          : store.demoTransLost ? '无信号' : store.demoTransition }}</p>
-        <p class="connecting-sub">{{ store.connecting
-          ? '正在检测探测器信号，根据信号情况自动切换对应状态'
-          : store.demoTransLost ? '上一场景信号已断开，正在重新接入新剧本'
-          : '场景数据即将接入，实时状态马上更新' }}</p>
-      </div>
-
-      <!-- 待机：两个接入开关都未开启，不产生数据流，明示如何开始 -->
-      <div class="hero-standby" v-else-if="store.standby">
-        <van-icon name="pause-circle-o" size="30" color="rgba(255,255,255,.55)" />
-        <p class="standby-title">系统待机中</p>
-        <p class="standby-sub">开启上方“真实接入”或“演示接入”后，开始实时守护</p>
-      </div>
-
-      <!-- 核心指标：呼吸频率 + 活动强度 -->
-      <div class="hero-metrics" v-else>
-        <div class="metric">
-          <div class="metric-top">
-            <span class="pulse-dot" :class="{ danger: store.breathingState !== 'normal' }" v-if="store.breathingRate > 0"></span>
-            <span class="metric-num">{{ store.breathingRate > 0 ? store.breathingRate : '—' }}</span>
-            <span class="metric-unit">次/分</span>
-          </div>
-          <div class="metric-label">
-            呼吸频率
-            <van-icon class="info-icon" name="question-o" size="13" @click="openInfo('breathing')" />
-            <span class="metric-tag" :style="{ background: store.breathingInfo.color }">
-              {{ store.breathingInfo.label }}
-            </span>
-          </div>
-        </div>
-        <div class="metric-divider"></div>
-        <div class="metric">
-          <div class="metric-top">
-            <span class="metric-num">{{ store.intensity.toFixed(2) }}</span>
-          </div>
-          <div class="metric-label">
-            活动强度
-            <van-icon class="info-icon" name="question-o" size="13" @click="openInfo('intensity')" />
-          </div>
-        </div>
-      </div>
-
-      <!-- 实时活动曲线：固定 0~1 坐标系 + 四档等级分区；信号异常时降透明度并标注暂停 -->
-      <div class="hero-chart-wrap" :class="{ paused: store.signalLost }" v-if="!store.offline">
-        <svg viewBox="0 0 320 60" preserveAspectRatio="none" class="hero-chart">
-          <defs>
-            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="rgba(255,255,255,.35)" />
-              <stop offset="100%" stop-color="rgba(255,255,255,0)" />
-            </linearGradient>
-          </defs>
-          <!-- 等级分区色带：自下而上 静止/轻微/活动/剧烈尖峰（与曲线同一映射） -->
-          <rect
-            v-for="band in LEVEL_BANDS" :key="band.name"
-            x="0" :y="60 * (1 - mapY(band.to))" width="320" :height="60 * (mapY(band.to) - mapY(band.from))"
-            :fill="band.color"
-          />
-          <!-- 刻度线：与后端判定阈值对齐 0.08 / 0.25 / 0.90 -->
-          <line v-for="t in [0.08, 0.25, 0.90]" :key="t"
-            x1="0" :y1="60 * (1 - mapY(t))" x2="320" :y2="60 * (1 - mapY(t))"
-            stroke="rgba(255,255,255,.18)" stroke-width="1" stroke-dasharray="3 3"
-          />
-          <path v-if="areaPathD" :d="areaPathD" fill="url(#areaGrad)" />
-          <path v-if="linePathD" :d="linePathD" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" />
-        </svg>
-        <!-- 坐标系标签：左侧刻度值 / 右侧等级名（HTML层不随SVG拉伸变形） -->
-        <div class="axis-labels">
-          <span class="axis-tick" style="top:0">1.0</span>
-          <span class="axis-tick" style="top:25%;transform:translateY(-50%)">0.90</span>
-          <span class="axis-tick" style="top:50%;transform:translateY(-50%)">0.25</span>
-          <span class="axis-tick" style="top:75%;transform:translateY(-50%)">0.08</span>
-          <span class="axis-tick" style="bottom:0">0</span>
-          <span class="axis-band" style="top:12.5%;transform:translateY(-50%)">剧烈尖峰</span>
-          <span class="axis-band" style="top:37.5%;transform:translateY(-50%)">活动</span>
-          <span class="axis-band" style="top:62.5%;transform:translateY(-50%)">轻微</span>
-          <span class="axis-band" style="top:87.5%;transform:translateY(-50%)">静止</span>
-        </div>
-        <div v-if="!store.intensityHistory.length" class="chart-empty">
-          {{ store.connecting ? '接入中 · 等待信号检测' : store.standby ? '待机 · 等待接入信号' : '等待数据...' }}
-        </div>
-        <div v-else-if="store.signalLost" class="chart-paused">曲线已暂停更新</div>
-      </div>
-
-      <!-- 信号解读台：内嵌在信号展示卡内部——
-           常驻只展示最近两行，点标题展开看全部细节（分析+建议） -->
-      <div class="hero-console" v-if="!store.offline">
-        <div class="console-head" @click="consoleOpen = !consoleOpen">
-          <div class="console-title">
-            <van-icon name="notes-o" size="14" />
-            信号解读台
-          </div>
-          <span class="console-sub">{{ consoleOpen ? '点击收起' : '最近两行 · 点我看细节' }}</span>
-          <van-icon :name="consoleOpen ? 'arrow-up' : 'arrow-down'" size="12" color="rgba(255,255,255,.55)" />
-        </div>
-        <div class="console-body">
-          <div v-if="!logs.length" class="console-empty">
-            <span class="console-cursor">▊</span>
-            信号平稳 · 静默采集中，出现异常波动时自动解读
-          </div>
-          <div v-for="log in consoleDisplayLogs" :key="log.id" class="console-line" :class="log.level">
-            <div class="console-main">
-              <span class="console-time">{{ log.time }}</span>
-              <span class="console-level">{{ log.level === 'danger' ? '紧急' : log.level === 'warn' ? '异常' : '状态' }}</span>
-              <span class="console-text">{{ log.text }}</span>
-            </div>
-            <template v-if="consoleOpen">
-              <div v-if="log.analysis" class="console-extra">分析：{{ log.analysis }}</div>
-              <div v-if="log.advice" class="console-extra advice">建议：{{ log.advice }}</div>
-            </template>
-          </div>
-        </div>
-      </div>
-
-      <div class="hero-foot">CSI 信号反射实时分析 · 无摄像头 · 无需穿戴</div>
-    </section>
-
-    <!-- 当前告警：告警并入守护页，有告时紧跟大卡置顶展示；
-         无告警不占空间，历史告警默认折叠 -->
-    <section
-      v-if="store.latestAlert" class="alert-panel"
-      :style="{ borderLeftColor: ALERT_LEVEL_COLOR[store.latestAlert.level] || '#1989fa' }"
-    >
-      <!-- 极简双导航：不展示任何文字信息，只有两个行动入口 -->
-      <div class="alert-panel-actions">
-        <van-button type="primary" round block size="small" @click="handleAlertCallEmergency">紧急联系</van-button>
-        <van-button type="danger" round block size="small" @click="handleAlertCall120">报警120</van-button>
-      </div>
-    </section>
-
-    <!-- 语音确证面板：依赖信号——只在监测链路实时可用时展示，
-         无信号时旧状态不冒充正在进行的流程 -->
-    <van-cell-group inset class="section" v-if="store.monitoringLive && store.guardZone === 2">
-      <van-cell title="语音确证" center>
-        <template #icon>
-          <van-icon name="volume-o" color="#ff9f00" style="margin-right:8px" />
-        </template>
-      </van-cell>
-      <div class="voice-panel">
-        <p v-if="store.voiceConfirmState === 'waiting'">
-          已发起语音确认“您还好吗？”，等待老人回应...
-        </p>
-        <p v-else-if="store.voiceConfirmState === 'ok'" style="color:#07c160">
-          老人回应正常，解除告警
-        </p>
-        <p v-else-if="store.voiceConfirmState === 'help'" style="color:#ee0a24">
-          老人求助！已升级告警
-        </p>
-        <p v-else>等待语音确认...</p>
-      </div>
-    </van-cell-group>
-
-    <!-- 折叠详情区：次要信息默认收起，首屏只留核心数据 -->
-    <van-collapse v-model="detailOpen" inset class="detail-collapse" @change="onCollapseChange">
-      <!-- 探测器连接：标题行常驻展示三态，点开才看诊断详情 -->
+    <!-- 探测器桥接：接入控制与显示盘之间，接入信号后先看桥接成功没
+         真实接入显示真实情况 / 演示接入按剧本演（接入检测中 → 接入成功信号良好） -->
+    <van-collapse v-model="detailOpen" inset class="detail-collapse bridge-collapse" @change="onCollapseChange">
       <van-collapse-item name="device">
         <template #title>
-          <div class="collapse-title">
-            <van-icon
-              :name="store.connectionInfo.icon === 'close' ? 'close' : store.connectionInfo.icon"
-              :color="store.connectionInfo.color" size="16"
-            />
-            <span>探测器检测</span>
-            <span class="collapse-state" :style="{ color: store.connectionInfo.color }">
-              {{ store.connectionInfo.label }}
-            </span>
+          <div class="bridge-title">
+            <div class="collapse-title">
+              <van-icon :name="bridgeVM.icon" :color="bridgeVM.color" size="16" />
+              <span>探测器检测</span>
+              <span class="collapse-state" :style="{ color: bridgeVM.color }">{{ bridgeVM.text }}</span>
+            </div>
+            <div class="bridge-sub">{{ bridgeVM.sub }}</div>
           </div>
         </template>
         <van-cell title="设备编号" :value="store.diagnosis?.device_id || store.deviceStatus?.device_id || '-'" />
@@ -729,8 +648,7 @@ const LEVEL_BANDS = [
             ? store.diagnosis.last_sample_lag_s + ' 秒' : '未收到数据'"
         />
         <van-cell
-          v-if="store.diagnosis"
-          title="期望上报间隔"
+          v-if="store.diagnosis" title="期望上报间隔"
           :value="store.diagnosis.sample_interval_expected_s + ' 秒/次'"
         />
         <div class="diag-tips" v-if="store.diagnosis?.tips?.length">
@@ -741,33 +659,159 @@ const LEVEL_BANDS = [
           <p class="diag-tips-title">📋 排查建议</p>
           <p class="diag-tip">· 检查边缘网关（树莓派）电源与网络连接</p>
           <p class="diag-tip">· 确认手机与网关在同一局域网</p>
-          <p class="diag-tip">· 信号状态持续自动检测，恢复后自动更新</p>
         </div>
       </van-collapse-item>
     </van-collapse>
 
-    <!-- 常驻指标说明浮层：解释等级/呼吸/活动强度的含义与判断标准 -->
-    <van-popup v-model:show="showInfo" round :style="{ width: '85%', maxHeight: '70%' }">
-      <div class="info-panel">
-        <div class="info-title">{{ infoTitle }}</div>
-        <div v-for="(line, i) in infoLines" :key="i" class="info-row">
-          <span class="info-key">{{ line.k }}</span>
-          <span class="info-val">{{ line.v }}</span>
+    <!-- 状态条：语义三态（静坐休憩中 / 活动中 / 疑似跌倒），无人时不断言 -->
+    <div class="status-card" :class="statusVM.cls" :style="{ borderLeftColor: statusBorderColor }">
+      <div class="status-line">
+        <span class="status-emoji">{{ statusVM.emoji }}</span>
+        <span class="status-main" :class="{ red: statusVM.mainRed }">{{ statusVM.main }}</span>
+        <div class="status-tools">
+          <div class="signal-tag" :class="signalInfo.kind">
+            <div class="signal-bars">
+              <span v-for="i in 4" :key="i" class="bar" :class="{ on: i <= signalInfo.bars }"></span>
+            </div>
+            <span class="signal-text">{{ signalInfo.text }}</span>
+          </div>
+          <van-icon
+            class="refresh-btn" name="replay" size="18" color="#6b7280"
+            :class="{ spinning: store.refreshing }" @click="onRefresh()"
+          />
         </div>
-        <van-button type="primary" block round size="small" style="margin-top:14px" @click="showInfo = false">
-          我知道了
-        </van-button>
       </div>
-    </van-popup>
+      <div class="status-sub">{{ statusVM.sub }}</div>
+      <div class="status-meta">
+        <span class="pill" :class="{
+          g: store.breathingState === 'normal' && store.breathingRate > 0,
+          o: ['elevated', 'irregular'].includes(store.breathingState),
+          r: ['shallow', 'lost'].includes(store.breathingState),
+        }">
+          {{ store.breathingRate > 0 ? `呼吸 ${store.breathingRate} 次/分` : '呼吸 暂未测到' }}
+        </span>
+        <span class="pill">运动幅度 {{ motionNow.split('·')[1]?.trim() || '平稳' }}</span>
+        <span class="pill">{{ ZONE_CN[store.zone] || store.zone }}</span>
+      </div>
+      <!-- 档案修正痕迹（千人千档） -->
+      <div v-if="adjustNotes" class="adjust-notes">🩺 {{ adjustNotes }}</div>
+    </div>
+
+    <!-- 双证据线：为什么判定为疑似跌倒（仅预警出现） -->
+    <div class="evidence" v-if="showEvidence">
+      <div class="evidence-title">为什么判定为疑似跌倒（双证据线）</div>
+      <div class="ev-row">
+        <span class="ev-icon" :class="{ off: !evidenceMotionOk }">{{ evidenceMotionOk ? '✓' : '⋯' }}</span>
+        证据线 1 · 运动幅度突然增大：近期峰值 {{ motionPeak.toFixed(2) }}（阈值 {{ SPIKE_THRESHOLD }}）
+      </div>
+      <div class="ev-row">
+        <span class="ev-icon" :class="{ off: !evidenceBreathOk }">{{ evidenceBreathOk ? '✓' : '⋯' }}</span>
+        证据线 2 · 呼吸变化：{{ store.breathingRate > 0 ? `${store.breathingRate} 次/分 · ${store.breathingInfo.label}` : '呼吸信号消失' }}（正常 ≤{{ store.breathingBandMax }}）
+      </div>
+      <div class="ev-note">判定规则：两条证据线同时成立才报警。若只有动作冲击、呼吸无变化，按「伸懒腰/弯腰」处理，仅记录不打扰。</div>
+    </div>
+
+    <!-- 响应措施时间线（8 步：双证据→两轮确证→危机递进措施） -->
+    <div class="resp" v-if="showRespCard">
+      <div class="resp-title">🚨 已自动启动的应对措施</div>
+      <!-- 告警链中的呼吸持续监测：巩固信息，展示收集情况与趋势 -->
+      <div class="breath-monitor" :class="breathTrend.cls">🫁 呼吸持续监测：{{ breathTrend.text }}</div>
+      <div class="step" v-for="(st, i) in respSteps" :key="i">
+        <div class="step-dot" :class="st.cls">{{ st.cls === 'done' ? '✓' : st.cls === 'doing' ? '⋯' : '○' }}</div>
+        <div class="step-body">
+          <div class="step-name">
+            {{ st.name }}
+            <span class="step-tag" :class="'tag-' + st.cls">{{ st.tag }}</span>
+          </div>
+          <div class="step-desc">{{ st.desc }}</div>
+          <button v-if="st.action" class="step-action" @click="onMonitorCheck">📹 {{ st.action }}</button>
+        </div>
+      </div>
+      <!-- 第二轮报警：响铃直到家人知晓 -->
+      <button v-if="store.ackRequired && !store.alertAcked" class="btn ack" @click="onAck">🔔 报警中 · 点我确认已知晓</button>
+      <div class="resp-btns">
+        <button class="btn primary" @click="handleAlertCallEmergency">📞 紧急联系</button>
+        <button class="btn danger" @click="handleAlertCall120">🚑 拨打120</button>
+        <button class="btn ghost" @click="onFalseAlarm">已确认/误报</button>
+      </div>
+    </div>
+    <!-- 解除小结：告警解除不瞬消，保留 30 秒，事件库全程可查 -->
+    <div class="resp cleared-card" v-else-if="clearedInfo">
+      <div class="resp-title ok">✅ 告警已解除</div>
+      <div class="cleared-line">解除原因：{{ clearedInfo.reason || '告警已解除' }}</div>
+      <div class="cleared-line">持续时长：{{ clearedInfo.durS }} 秒 · 最新呼吸：{{ clearedInfo.br > 0 ? `${clearedInfo.br} 次/分` : '暂未测到' }}</div>
+      <div class="cleared-line note">全过程已在事件库留痕，可随时查看</div>
+    </div>
+
+    <!-- 语音确证面板：双证据线成立后发起（节奏随档案） -->
+    <van-cell-group inset class="section" v-if="store.monitoringLive && store.voiceConfirmState">
+      <van-cell title="语音确证" center>
+        <template #icon>
+          <van-icon name="volume-o" color="#ff9f00" style="margin-right:8px" />
+        </template>
+      </van-cell>
+      <div class="voice-panel">
+        <p v-if="store.voiceConfirmState === 'waiting'">
+          <template v-if="store.voiceRound === 2">已提升告警级别并再次询问（第 2 轮 · {{ store.voiceTimeoutS }}s），报警响铃中...</template>
+          <template v-else>已发起语音确认“您还好吗？”（第 1 轮 · {{ store.voiceTimeoutS }}s），等待老人回应...</template>
+        </p>
+        <p v-else-if="store.voiceConfirmState === 'ok'" style="color:#16a34a">老人回应「没事」，告警解除</p>
+        <p v-else-if="store.voiceConfirmState === 'help'" style="color:#dc2626">老人求助（或检测到呻吟）！已升级告警，呼吸持续监测中</p>
+        <p v-else>等待语音确认...</p>
+        <div v-if="store.voiceConfirmState === 'waiting'" class="voice-btns">
+          <button class="vbtn ok" @click="onVoiceRespond('ok')">回应「没事」</button>
+          <button class="vbtn help" @click="onVoiceRespond('help')">回应「救我」</button>
+          <button class="vbtn help" @click="onVoiceRespond('help')">检测到呻吟</button>
+        </div>
+      </div>
+    </van-cell-group>
+
+    <!-- 运动幅度表：分段压缩 Y 轴 -->
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">📶 运动幅度（近 60 秒）</span>
+        <span class="chart-now">{{ motionNow }}</span>
+      </div>
+      <canvas ref="motionCanvas" width="700" height="260"></canvas>
+      <div class="chart-foot"><span>60秒前</span><span>30秒前</span><span>现在</span></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#cbd5e1"></i>平稳</span>
+        <span><i class="dot" style="background:#22c55e"></i>活动</span>
+        <span><i class="dot" style="background:#ef4444"></i>突然增大</span>
+      </div>
+    </div>
+
+    <!-- 呼吸频率表：医学色带，正常带上限随档案修正 -->
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">🫁 呼吸频率（近 60 秒）</span>
+        <span class="chart-now">{{ breathNow }}</span>
+      </div>
+      <canvas ref="breathCanvas" width="700" height="240"></canvas>
+      <div class="chart-foot"><span>60秒前</span><span>30秒前</span><span>现在</span></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#22c55e"></i>平稳 8~{{ store.breathingBandMax }}</span>
+        <span><i class="dot" style="background:#fb923c"></i>加快&gt;{{ store.breathingBandMax }} / 浅慢&lt;8</span>
+        <span><i class="dot" style="background:#ef4444"></i>衰减&lt;3</span>
+        <span class="legend-note">空白 = 暂未测到（不断言）</span>
+      </div>
+    </div>
+
+    <div class="page-note">
+      守护层级：无人 / 有人（正常·休憩中·移动中 | 异常·疑似跌倒）<br>
+      双证据线成立才预警 · CSI 信号反射实时分析 · 无摄像头 · 无需穿戴
+    </div>
   </div>
 </template>
 
 <style scoped>
 .home-page {
-  padding-bottom: 8px;
+  min-height: 100vh;
+  background: #f4f6f8;
+  padding-bottom: 16px;
 }
 
-/* ---- 顶栏：左品牌 / 右守护人 ---- */
+/* ---- 顶栏 ---- */
 .home-header {
   display: flex;
   align-items: center;
@@ -775,768 +819,213 @@ const LEVEL_BANDS = [
   padding: 12px 16px;
   background: #fff;
 }
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.brand { display: flex; align-items: center; gap: 8px; }
 .brand-logo {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
+  width: 40px; height: 40px; object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(26, 58, 110, 0.18));
 }
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.brand-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: #1f2329;
-  letter-spacing: 0.5px;
-}
-
-.brand-sub {
-  font-size: 10px;
-  color: #969799;
-  letter-spacing: 1px;
-}
-
+.brand-text { display: flex; flex-direction: column; }
+.brand-name { font-size: 15px; font-weight: 700; color: #1f2937; letter-spacing: 0.5px; }
+.brand-sub { font-size: 10px; color: #9ca3af; letter-spacing: 1px; }
 .elder-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 4px;
-  background: #f7f8fa;
-  border-radius: 999px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 4px; background: #f7f8fa; border-radius: 999px;
 }
-
 .elder-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg, #1989fa, #47b2ff);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: #fff; font-size: 15px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.elder-info { display: flex; flex-direction: column; }
+.elder-name { font-size: 13px; font-weight: 600; color: #1f2937; }
+.elder-state { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #969799; }
+.state-dot { width: 6px; height: 6px; border-radius: 50%; background: #16a34a; }
+.state-dot.alert { background: #dc2626; }
+
+/* ---- 接入控制卡 ---- */
+.source-card {
+  margin: 10px 10px 0; padding: 4px 14px;
+  background: #fff; border-radius: 14px;
+}
+.source-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+.source-info { flex: 1; margin-right: 10px; }
+.source-name { font-size: 13px; font-weight: 700; color: #1f2937; display: flex; align-items: center; gap: 6px; }
+.source-priority { transform: scale(0.9); }
+.source-desc { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.source-divider { height: 1px; background: #f1f5f9; }
+.scenario-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 2px 0 10px; padding: 8px 10px;
+  border-radius: 10px; background: #f8fafc;
+  border-left: 4px solid var(--sc-color, #969799);
+}
+.scenario-bar-info { display: flex; flex-direction: column; gap: 4px; }
+.scenario-bar-title { font-size: 12px; font-weight: 700; color: #1f2937; }
+.scenario-bar-segs { display: flex; gap: 3px; }
+.scenario-bar-segs i { width: 14px; height: 3px; border-radius: 2px; background: #e2e8f0; }
+.scenario-bar-segs i.on { background: var(--sc-color, #1f2937); }
+.scenario-switch-btn {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 12px; color: #2563eb; background: #eff6ff;
+  border: none; border-radius: 8px; padding: 6px 10px;
 }
 
-.elder-info {
-  display: flex;
-  flex-direction: column;
+/* ---- 状态条（语义三态） ---- */
+.status-card {
+  background: #fff; border-radius: 16px;
+  padding: 16px 14px; margin: 10px 10px 0;
+  border-left: 6px solid #16a34a;
 }
+.status-line { display: flex; align-items: center; gap: 10px; }
+.status-emoji { font-size: 30px; line-height: 1; }
+.status-main { font-size: 21px; font-weight: 800; color: #1f2937; flex: 1; }
+.status-main.red { color: #dc2626; }
+.status-tools { display: flex; align-items: center; gap: 8px; }
+.status-sub { font-size: 12px; color: #6b7280; margin-top: 8px; line-height: 1.6; }
+.status-meta { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.pill { font-size: 11px; padding: 4px 10px; border-radius: 99px; background: #f1f5f9; color: #6b7280; }
+.pill.g { background: #ecfdf5; color: #047857; }
+.pill.o { background: #fffbeb; color: #b45309; }
+.pill.r { background: #fef2f2; color: #b91c1c; }
+.adjust-notes { margin-top: 10px; font-size: 11px; color: #0369a1; background: #f0f9ff; border-radius: 8px; padding: 6px 8px; line-height: 1.6; }
 
-.elder-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1f2329;
-}
-
-.elder-state {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #969799;
-}
-
-.state-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #07c160;
-}
-
-.state-dot.alert {
-  background: #ee0a24;
-}
-
-/* ---- 中央大卡：信号展示主体，加大加显眼 ---- */
-.hero {
-  margin: 10px 10px 0;
-  border-radius: 22px;
-  padding: 20px 18px 16px;
-  color: #fff;
-  box-shadow: 0 10px 30px rgba(15, 30, 40, 0.22);
-}
-
-.hero-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.hero-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.hero-status-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.hero-status-label {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.info-icon {
-  margin-left: 4px;
-  color: rgba(255, 255, 255, 0.7);
-  vertical-align: 1px;
-}
-
-.hero-status-sub {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
-  margin-top: 3px;
-}
-
-.hero-tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 信号标签：仿手机信号格，实心格=真实信号、空心格=虚拟信号 */
+/* 信号标签 */
 .signal-tag {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: 20px;
-  background: rgba(255,255,255,.14);
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 20px; background: #f1f5f9;
 }
-
-.signal-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-}
-
-.signal-bars .bar {
-  width: 3px;
-  border-radius: 1px;
-  box-sizing: border-box;
-  background: rgba(255,255,255,.28);
-}
-
-/* 递增高度，同手机信号格 */
+.signal-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+.signal-bars .bar { width: 3px; border-radius: 1px; box-sizing: border-box; background: #d1d5db; }
 .signal-bars .bar:nth-child(1) { height: 5px; }
 .signal-bars .bar:nth-child(2) { height: 8px; }
 .signal-bars .bar:nth-child(3) { height: 11px; }
 .signal-bars .bar:nth-child(4) { height: 14px; }
-
-.signal-tag.real .bar.on { background: #8ff0b8; }
-.signal-tag.weak .bar.on { background: #ffc069; }
-/* 虚拟：满格但空心蓝描边——看着有信号，一眼辨出非真实接入 */
-.signal-tag.virtual .bar.on {
-  background: transparent;
-  border: 1px solid #9fd4ff;
-}
-
-.signal-text { font-size: 11px; line-height: 1; }
-.signal-tag.real .signal-text { color: #b7f5d0; }
-.signal-tag.weak .signal-text { color: #ffe0b3; }
-.signal-tag.none .signal-text { color: rgba(255,255,255,.65); }
-.signal-tag.virtual .signal-text { color: #a3d8ff; }
-.signal-tag.standby .signal-text { color: rgba(255,255,255,.55); }
-/* 接入中：文字呼吸闪烁，传达“进行中” */
-.signal-tag.connecting .signal-text {
-  color: #a3d8ff;
-  animation: pulse-text 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse-text {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-
-.refresh-btn.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.hero-offline {
-  margin-top: 14px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.hero-offline p {
-  margin: 0 0 10px;
-}
-
-/* 信号异常降级区：替代实时指标，明示旧数据不可信 */
-.hero-lost {
-  margin-top: 14px;
-  padding: 14px 12px;
-  border-radius: 12px;
-  background: rgba(255, 192, 105, 0.1);
-  border: 1px dashed rgba(255, 192, 105, 0.45);
-  text-align: center;
-}
-
-.hero-lost .lost-title {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffe0b3;
-}
-
-.hero-lost .lost-sub {
-  margin: 0 0 6px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.hero-lost .lost-time {
-  margin: 0 0 10px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* 待机区：中性安静，与信号异常的警示色区分 */
-.hero-standby {
-  margin-top: 14px;
-  padding: 18px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  text-align: center;
-}
-
-/* 接入中区：与待机同构，冷色调表达“进行中” */
-.hero-connecting {
-  margin-top: 14px;
-  padding: 18px 12px;
-  border-radius: 12px;
-  background: rgba(163, 216, 255, 0.08);
-  text-align: center;
-}
-
-.hero-connecting .connecting-title {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #a3d8ff;
-}
-
-.hero-connecting .connecting-sub {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.hero-standby .standby-title {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.hero-standby .standby-sub {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* 核心指标区 */
-.hero-metrics {
-  display: flex;
-  align-items: center;
-  margin-top: 12px;
-  padding: 14px 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(4px);
-}
-
-.metric {
-  flex: 1;
-  padding: 0 16px;
-}
-
-.metric-divider {
-  width: 1px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.metric-top {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.metric-num {
-  font-size: 40px;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-unit {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.metric-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.metric-tag {
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  color: #fff;
-}
-
-/* 呼吸光点：呼吸节律动效，异常变红 */
-.pulse-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #6ee7b7;
-  align-self: center;
-  animation: pulse 3.6s ease-in-out infinite;
-}
-
-.pulse-dot.danger {
-  background: #ff8080;
-  animation-duration: 1.2s;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0.55; }
-}
-
-/* 实时曲线 */
-.hero-chart-wrap {
-  position: relative;
-  margin-top: 10px;
-}
-
-.hero-chart {
-  display: block;
-  width: 100%;
-  height: 150px;
-}
-
-/* 坐标系标签：左侧刻度值 / 右侧等级名 */
-.axis-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.axis-tick {
-  position: absolute;
-  left: 4px;
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.5);
-  font-variant-numeric: tabular-nums;
-}
-
-.axis-band {
-  position: absolute;
-  right: 6px;
-  transform: translateY(-50%);
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.chart-empty {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-}
-
-/* 信号异常：曲线降透明度 + 暂停标注，旧曲线不冒充实时数据 */
-.hero-chart-wrap.paused .hero-chart,
-.hero-chart-wrap.paused .axis-labels {
-  opacity: 0.35;
-}
-
-.chart-paused {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.45);
-  color: #ffe0b3;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.hero-foot {
-  margin-top: 8px;
-  text-align: center;
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* ---- 数据源模式卡片 ---- */
-.source-card {
-  margin: 10px 12px 0;
-  padding: 4px 14px;
-  background: #fff;
-  border-radius: 12px;
-}
-
-.source-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-}
-
-.source-info {
-  flex: 1;
-  margin-right: 12px;
-}
-
-.source-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2329;
-}
-
-.source-priority {
-  transform: scale(0.9);
-}
-
-.source-desc {
-  margin-top: 2px;
-  font-size: 11px;
-  color: #969799;
-}
-
-.source-divider {
-  height: 1px;
-  background: #f2f3f5;
-}
-
-/* 场景长条：左侧当前场景状态（色带随风险分级），右侧切换键 */
-.scenario-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding: 9px 10px;
-  background: #f7f8fa;
-  border-radius: 10px;
-  border-left: 4px solid var(--sc-color, #07c160);
-}
-
-.scenario-bar-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.scenario-bar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sc-color, #1f2329);
-}
-
-/* 四格位置指示：当前场景对应一格加宽点亮 */
-.scenario-bar-segs {
-  display: flex;
-  gap: 4px;
-}
-
-.scenario-bar-segs i {
-  width: 16px;
-  height: 4px;
-  border-radius: 2px;
-  background: #dcdfe4;
-  transition: all 0.25s;
-}
-
-.scenario-bar-segs i.on {
-  width: 28px;
-  background: var(--sc-color, #1989fa);
-}
-
-.scenario-switch-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 13px;
-  border: none;
-  border-radius: 999px;
-  background: #1989fa;
-  color: #fff;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.scenario-switch-btn:active {
-  opacity: 0.75;
-}
-
-/* ---- 当前告警卡：紧跟大卡，左色带随告警级别 ---- */
-.alert-panel {
-  margin: 10px 10px 0;
-  padding: 12px 14px;
-  background: #fff;
-  border-radius: 14px;
-  border-left: 4px solid #ee0a24;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.alert-panel-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-/* ---- 信号解读台：内嵌在信号展示卡内部，常驻两行可展开 ---- */
-.hero-console {
-  margin: 10px 12px 0;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.28);
-  overflow: hidden;
-}
-
-.console-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  cursor: pointer;
-}
-
-.console-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #d6e4ff;
-}
-
-.console-sub {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 1px;
-}
-
-.console-body {
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 6px 14px 8px;
-}
-
-.console-empty {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.console-cursor {
-  color: #6ee7b7;
-  animation: pulse-text 1.2s ease-in-out infinite;
-}
-
-.console-line {
-  padding: 6px 0;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-}
-
-.console-line:last-child {
-  border-bottom: none;
-}
-
-.console-main {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.console-time {
-  flex-shrink: 0;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.38);
-  font-variant-numeric: tabular-nums;
-}
-
-.console-level {
-  flex-shrink: 0;
-  padding: 0 5px;
-  border-radius: 4px;
-  font-size: 10px;
-  line-height: 16px;
-}
-
-.console-line.info .console-level {
-  background: rgba(110, 231, 183, 0.15);
-  color: #6ee7b7;
-}
-
-.console-line.warn .console-level {
-  background: rgba(255, 192, 105, 0.16);
-  color: #ffc069;
-}
-
-.console-line.danger .console-level {
-  background: rgba(255, 128, 128, 0.18);
-  color: #ff8080;
-}
-
-.console-text {
-  font-size: 12px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.console-line.danger .console-text {
-  color: #ffb3b3;
-  font-weight: 600;
-}
-
-.console-extra {
-  margin: 3px 0 0 44px;
-  font-size: 11px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.console-extra.advice {
-  color: #9fd4ff;
-}
-
-/* 指标说明浮层 */
-.info-panel {
-  padding: 18px 16px;
-}
-
-.info-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #1f2329;
-  margin-bottom: 12px;
-}
-
-.info-row {
-  display: flex;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f2f3f5;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.info-row:last-of-type {
-  border-bottom: none;
-}
-
-.info-key {
-  flex-shrink: 0;
-  width: 76px;
-  font-weight: 600;
-  color: #1f2329;
-}
-
-.info-val {
-  color: #646566;
-}
-
-.section {
-  margin-top: 10px;
-}
-
-.voice-panel {
-  padding: 12px 16px;
-  font-size: 14px;
-  color: #666;
-}
-
-/* ---- 折叠详情区：次要信息默认收起 ---- */
-.detail-collapse {
-  margin-top: 10px;
-}
-
-.collapse-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.collapse-state {
-  font-size: 12px;
-  color: #969799;
-}
-
-.collapse-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 10px 0 4px;
-  font-size: 13px;
-  color: #1989fa;
-}
-
-.diag-tips {
-  margin: 10px 4px 0;
-  background: #f7f8fa;
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.diag-tips-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-
-.diag-tip {
-  font-size: 12px;
-  color: #666;
-  line-height: 1.8;
-  margin: 2px 0;
+.signal-tag.real .bar.on { background: #16a34a; }
+.signal-tag.weak .bar.on { background: #f59e0b; }
+.signal-tag.virtual .bar.on { background: transparent; border: 1px solid #2563eb; }
+.signal-text { font-size: 11px; line-height: 1; color: #6b7280; }
+.signal-tag.real .signal-text { color: #047857; }
+.signal-tag.weak .signal-text { color: #b45309; }
+.signal-tag.virtual .signal-text { color: #2563eb; }
+.signal-tag.connecting .signal-text { color: #2563eb; animation: pulse-text 1.2s ease-in-out infinite; }
+@keyframes pulse-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.refresh-btn.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ---- 双证据线 ---- */
+.evidence {
+  background: #fff; border: 1px solid #fecaca; border-radius: 12px;
+  padding: 12px; margin: 10px 10px 0;
+}
+.evidence-title { font-size: 13px; font-weight: 700; color: #dc2626; margin-bottom: 8px; }
+.ev-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1f2937; padding: 5px 0; }
+.ev-icon {
+  width: 20px; height: 20px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: #fff; background: #dc2626;
+}
+.ev-icon.off { background: #d1d5db; }
+.ev-note { font-size: 11px; color: #9ca3af; margin-top: 6px; line-height: 1.5; }
+
+/* ---- 响应措施时间线 ---- */
+.resp {
+  background: #fff5f5; border: 1px solid #fecaca; border-radius: 16px;
+  padding: 14px; margin: 10px 10px 0;
+}
+.resp-title { font-size: 14px; font-weight: 800; color: #dc2626; margin-bottom: 10px; }
+.step { display: flex; gap: 10px; position: relative; padding-bottom: 14px; }
+.step:last-child { padding-bottom: 0; }
+.step::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: #fecaca; }
+.step:last-child::before { display: none; }
+.step-dot {
+  width: 24px; height: 24px; border-radius: 50%; flex: none; z-index: 1;
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+}
+.step-dot.done { background: #dc2626; color: #fff; }
+.step-dot.doing { background: #fff; border: 2px solid #dc2626; color: #dc2626; animation: pulse 1.2s infinite; }
+.step-dot.todo { background: #fff; border: 2px solid #fca5a5; color: #fca5a5; }
+.step-dot.skip { background: #f3f4f6; color: #9ca3af; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, .35); } 50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); } }
+.step-body { flex: 1; }
+.step-name { font-size: 13px; font-weight: 700; color: #1f2937; }
+.step-desc { font-size: 12px; color: #6b7280; margin-top: 2px; line-height: 1.5; }
+.step-tag { font-size: 11px; padding: 1px 8px; border-radius: 99px; margin-left: 6px; vertical-align: 1px; }
+.tag-done { background: #fee2e2; color: #b91c1c; }
+.tag-doing { background: #fef3c7; color: #b45309; }
+.tag-todo { background: #f3f4f6; color: #9ca3af; }
+.tag-skip { background: #e0f2fe; color: #0369a1; }
+.resp-btns { display: flex; gap: 8px; margin-top: 12px; }
+.btn { flex: 1; padding: 11px 0; border-radius: 12px; border: none; font-size: 13px; font-weight: 700; }
+.btn.primary { background: #dc2626; color: #fff; }
+.btn.danger { background: #111827; color: #fff; }
+.btn.ghost { background: #fff; color: #6b7280; border: 1px solid #e5e7eb; }
+.btn.ack {
+  width: 100%; margin-top: 12px; padding: 13px 0;
+  background: #f59e0b; color: #fff; font-size: 14px;
+  animation: pulse 1.2s infinite;
+}
+/* 呼吸持续监测条 */
+.breath-monitor {
+  font-size: 12px; line-height: 1.6; border-radius: 8px;
+  padding: 7px 10px; margin-bottom: 12px;
+  background: #ecfdf5; color: #047857;
+}
+.breath-monitor.warn { background: #fffbeb; color: #b45309; }
+.breath-monitor.bad { background: #fee2e2; color: #b91c1c; font-weight: 700; }
+/* 步骤内手动操作按钮（监控排查） */
+.step-action {
+  margin-top: 6px; padding: 6px 12px;
+  font-size: 12px; font-weight: 600; color: #b45309;
+  background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px;
+}
+/* 解除小结卡 */
+.cleared-card { background: #f0fdf4; border-color: #bbf7d0; }
+.resp-title.ok { color: #16a34a; }
+.cleared-line { font-size: 12px; color: #374151; line-height: 1.8; }
+.cleared-line.note { color: #9ca3af; margin-top: 4px; }
+
+/* ---- 数据表 ---- */
+.chart-card {
+  background: #fff; border-radius: 16px;
+  padding: 14px 12px 10px; margin: 10px 10px 0;
+}
+.chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.chart-title { font-size: 14px; font-weight: 700; color: #1f2937; }
+.chart-now { font-size: 12px; color: #6b7280; }
+canvas { display: block; width: 100%; }
+.chart-foot { display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; margin-top: 4px; padding: 0 2px; }
+.legend { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.legend span { font-size: 11px; color: #6b7280; display: flex; align-items: center; gap: 4px; }
+.legend-note { color: #9ca3af; }
+.dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+
+/* ---- 语音确证 ---- */
+.section { margin-top: 10px; }
+.voice-panel { padding: 4px 16px 12px; font-size: 13px; color: #1f2937; }
+.voice-panel p { margin: 0; }
+.voice-btns { display: flex; gap: 8px; margin-top: 10px; }
+.vbtn {
+  flex: 1; padding: 9px 0; border-radius: 10px; border: none;
+  font-size: 12px; font-weight: 700;
+}
+.vbtn.ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.vbtn.help { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+/* ---- 折叠详情 ---- */
+.detail-collapse { margin-top: 10px; }
+/* 探测器桥接：紧贴接入控制卡，与显示盘之间形成「接入 → 桥接 → 显示」阅读顺序 */
+.bridge-collapse { margin-top: 8px; }
+.bridge-title { display: flex; flex-direction: column; gap: 2px; }
+.bridge-sub { font-size: 11px; color: #9ca3af; padding-left: 22px; }
+.collapse-title { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.collapse-state { font-size: 11px; margin-left: 4px; }
+.diag-tips { padding: 8px 16px 12px; }
+.diag-tips-title { font-size: 12px; font-weight: 700; color: #1f2937; margin: 0 0 6px; }
+.diag-tip { font-size: 12px; color: #6b7280; margin: 2px 0; }
+
+.page-note {
+  font-size: 11px; color: #9ca3af; text-align: center;
+  margin: 14px 10px 4px; line-height: 1.7;
 }
 </style>

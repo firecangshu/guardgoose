@@ -1,0 +1,13 @@
+{
+  "name": "有人 · 异常 · 疑似跌倒（静止中）",
+  "zone": "living",
+  "description": "静止中 → 突然剧烈运动 + 气息紊乱（双证据线成立）→ 告警，进入与移动中跌倒完全一致的后续确证链；本场景确证中自行起身恢复活动、气息平稳 → 自动解除告警，事件库留痕。",
+  "speed": 30,
+  "segments": [
+    { "label": "在家活动（确认有人）", "duration_s": 15, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
+    { "label": "静坐休息", "duration_s": 30, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 },
+    { "label": "突然剧烈波动（跌倒瞬间）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 15, "br_high": 19 },
+    { "label": "倒地静止·呼吸紊乱", "duration_s": 40, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
+    { "label": "自行起身·恢复活动，呼吸回正常带", "duration_s": 30, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 16 }
+  ]
+}

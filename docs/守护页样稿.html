@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>守护页样稿 v2 · 语义优先 + 双波动表</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#ffffff; --line:#e8ecf0;
+    --ink:#1f2937; --ink2:#6b7280; --ink3:#9ca3af;
+    --ok:#16a34a; --warn:#f59e0b; --danger:#dc2626; --calm:#9ca3af;
+    --blue:#2563eb; --radius:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
+  body{background:#d8dee6;display:flex;justify-content:center;padding:24px 12px;}
+  .phone{width:420px;background:var(--bg);border-radius:28px;padding:16px 14px 26px;box-shadow:0 12px 40px rgba(0,0,0,.18);}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:2px 6px 12px;}
+  .topbar .t{font-size:17px;font-weight:700;color:var(--ink);}
+  .topbar .d{font-size:12px;color:var(--ink2);}
+
+  /* ---- 演示场景切换（仅样稿用）---- */
+  .demo{display:flex;gap:8px;margin-bottom:12px;}
+  .demo button{flex:1;padding:8px 0;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:12px;color:var(--ink2);cursor:pointer;}
+  .demo button.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+  /* ---- ① 语义状态条 ---- */
+  .status-card{background:var(--card);border-radius:var(--radius);padding:18px 16px;margin-bottom:12px;border-left:6px solid var(--ok);}
+  .status-card.warn{border-left-color:var(--warn);}
+  .status-card.danger{border-left-color:var(--danger);}
+  .status-card.silent{border-left-color:var(--calm);}
+  .status-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .status-main{font-size:24px;font-weight:800;color:var(--ink);}
+  .status-sub{font-size:13px;color:var(--ink2);}
+  .status-meta{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .pill{font-size:12px;padding:4px 10px;border-radius:99px;background:#f1f5f9;color:var(--ink2);}
+  .pill.g{background:#ecfdf5;color:#047857;}
+  .pill.o{background:#fffbeb;color:#b45309;}
+  .pill.r{background:#fef2f2;color:#b91c1c;}
+  .pill.gray{background:#f3f4f6;color:#9ca3af;}
+  .status-time{margin-top:10px;font-size:12px;color:var(--ink3);}
+
+  /* ---- 波动表卡 ---- */
+  .chart-card{background:var(--card);border-radius:var(--radius);padding:14px 14px 10px;margin-bottom:12px;}
+  .chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .chart-title{font-size:14px;font-weight:700;color:var(--ink);}
+  .chart-now{font-size:12px;color:var(--ink2);}
+  .chart-wrap{position:relative;}
+  canvas{display:block;width:100%;}
+  .chart-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:4px;padding:0 2px;}
+  .legend{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;}
+  .legend span{font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:4px;}
+  .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
+  /* 无人静默态遮罩 */
+  .silent-mask{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.86);border-radius:8px;gap:6px;}
+  .silent-mask .big{font-size:15px;font-weight:700;color:var(--ink3);}
+  .silent-mask .small{font-size:12px;color:var(--ink3);}
+
+  /* ---- ④ 告警卡 ---- */
+  .alert-card{background:#fff5f5;border:1px solid #fecaca;border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .alert-card.hidden{display:none;}
+  .alert-title{font-size:15px;font-weight:800;color:var(--danger);display:flex;align-items:center;gap:6px;}
+  .alert-body{font-size:13px;color:#7f1d1d;margin-top:6px;line-height:1.6;}
+  .alert-evidence{font-size:12px;color:#9a3412;background:#fff;border:1px dashed #fecaca;border-radius:8px;padding:6px 10px;margin-top:8px;}
+  .alert-btns{display:flex;gap:10px;margin-top:12px;}
+  .btn{flex:1;padding:11px 0;border-radius:12px;border:none;font-size:14px;font-weight:700;cursor:pointer;}
+  .btn.primary{background:var(--danger);color:#fff;}
+  .btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line);}
+
+  .note{font-size:11px;color:var(--ink3);text-align:center;margin-top:4px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <span class="t">🪿 护院鹅 · 守护页</span>
+    <span class="d" id="clock">14:32</span>
+  </div>
+
+  <!-- 演示用场景切换 -->
+  <div class="demo">
+    <button class="on" onclick="setScene('rest')">静坐（锁定中）</button>
+    <button onclick="setScene('active')">活动+跌倒事件</button>
+    <button onclick="setScene('empty')">家中无人</button>
+  </div>
+
+  <!-- ① 语义状态条 -->
+  <div class="status-card" id="statusCard">
+    <div class="status-line">
+      <span class="status-main" id="statusMain">家中有人 · 静坐中</span>
+    </div>
+    <div class="status-sub" id="statusSub">呼吸平稳，信号锁定中，一切正常</div>
+    <div class="status-meta" id="statusMeta">
+      <span class="pill g">呼吸 12 次/分</span>
+      <span class="pill g">信号锁定 · 共识 31/32</span>
+      <span class="pill">客厅 · 探测正常</span>
+    </div>
+    <div class="status-time" id="statusTime">最近呼吸确认：刚刚 · 最近活动：2 分钟前（起身倒水）</div>
+  </div>
+
+  <!-- ④ 告警卡（跌倒事件场景才显示） -->
+  <div class="alert-card hidden" id="alertCard">
+    <div class="alert-title">⚠️ 疑似跌倒（Type A）· 需确认</div>
+    <div class="alert-body">1 分钟前检测到一次明显冲击，随后持续静止未恢复，呼吸仍可测到（11 次/分）。语音呼叫已发起，暂无回应。</div>
+    <div class="alert-evidence">证据：冲击峰值 0.31（跌倒阈值 0.22）· 冲击后静止 62 秒 · 置信度 87%</div>
+    <div class="alert-btns">
+      <button class="btn primary">📞 立即拨打</button>
+      <button class="btn ghost">这是误报</button>
+    </div>
+  </div>
+
+  <!-- ② 运动波动表 -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <span class="chart-title">📶 运动强度（近 5 分钟）</span>
+      <span class="chart-now" id="motionNow">当前 0.01 · 静止</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="motionChart" width="776" height="300"></canvas>
+      <div class="silent-mask" id="motionMask">
+        <span class="big">无监测目标</span>
+        <span class="small">家中无人时系统进入低功耗值守，防盗监测仍在工作</span>
+      </div>
+    </div>
+    <div class="chart-foot"><span>5分前</span><span>3分前</span><span>1分前</span><span>现在</span></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#cbd5e1"></i>静止</span>
+      <span><i class="dot" style="background:#94a3b8"></i>环境噪声（底噪带内）</span>
+      <span><i class="dot" style="background:#22c55e"></i>活动</span>
+      <span><i class="dot" style="background:#ef4444"></i>冲击（跌倒候选）</span>
+      <span><i class="dot" style="background:none;border-top:2px dashed #f59e0b;width:14px;height:0"></i>底噪参考线</span>
+    </div>
+  </div>
+
+  <!-- ③ 呼吸波动表 -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <span class="chart-title">🫁 呼吸率（近 5 分钟）</span>
+      <span class="chart-now" id="breathNow">12 次/分 · 正常</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="breathChart" width="776" height="260"></canvas>
+      <div class="silent-mask" id="breathMask">
+        <span class="big">无监测目标</span>
+        <span class="small">无人时呼吸监测自动挂起</span>
+      </div>
+    </div>
+    <div class="chart-foot"><span>5分前</span><span>3分前</span><span>1分前</span><span>现在</span></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#22c55e"></i>正常 8~20</span>
+      <span><i class="dot" style="background:#fb923c"></i>浅慢&lt;8 / 加快&gt;20</span>
+      <span><i class="dot" style="background:#ef4444"></i>消失&lt;3</span>
+      <span style="color:var(--ink3)">空白 = 未锁定（测不到，≠ 呼吸停止）</span>
+    </div>
+  </div>
+
+  <div class="note">样稿 v2 · 数据为真机实测特征仿真（底噪 0.007 / 空调峰 / 跌倒尖峰 0.31 / 呼吸 9~14 稀疏锁定）<br>阈值全部复用后端 config，界面与告警逻辑同一套标准</div>
+</div>
+
+<script>
+/* ================= 阈值（与 edge/config.py 同源） ================= */
+const STILL_MAX=0.05, ACTIVE_MIN=0.15, SPIKE_MIN=0.22, NOISE_FLOOR_HIGH=0.02;
+const BR_LOST=3, BR_SLOW=8, BR_MIN=12, BR_MAX=20, BR_TOP=30;
+const N=300; // 5分钟×每秒1点
+
+/* ================= 合成真机特征数据 ================= */
+function genMotion(scene){
+  const a=new Array(N), floor=new Array(N);
+  let f=0.007, spikeAt=-1;
+  for(let i=0;i<N;i++){
+    // 底噪缓慢漂移（模拟空调开关）
+    if(i===90) f=0.034;          // 3:30 前开空调
+    if(i===210) f=0.009;         // 1:30 前关空调
+    floor[i]=f;
+    let v=f*(0.6+Math.random()*0.8)+Math.random()*0.004;
+    if(scene==='rest'){
+      if(Math.random()<0.02) v=f*3.2+Math.random()*0.02;   // 噪声偶发峰（底噪带内）
+    }else if(scene==='active'){
+      if(i>=232&&i<=255) v=0.18+Math.random()*0.14;         // 走动段
+      if(i===258){v=0.31;spikeAt=i;}                        // 跌倒冲击
+      if(i>258&&i<N) v=0.01+Math.random()*0.015;            // 倒地后静止
+      else if(i>255&&i<258) v=0.02+Math.random()*0.01;
+      if(Math.random()<0.015) v=Math.max(v,f*2.5);
+    }else{
+      if(Math.random()<0.02) v=f*2.8;
+    }
+    a[i]=Math.min(v,1);
+  }
+  return {a,floor,spikeAt};
+}
+function genBreath(scene){
+  // null=未锁定；number=锁定呼吸率
+  const r=new Array(N).fill(null);
+  if(scene==='rest'){
+    let locked=false,rate=12;
+    for(let i=0;i<N;i++){
+      if(Math.random()<0.03) locked=!locked;               // 锁定/失锁切换
+      if(i>270) locked=true;                               // 最近30s稳定锁定
+      if(locked){ rate+= (Math.random()-0.5)*0.6; rate=Math.max(9,Math.min(15,rate)); r[i]=rate; }
+    }
+  }else if(scene==='active'){
+    let rate=13;
+    for(let i=0;i<N;i++){
+      if(i<230&&Math.random()<0.5){ rate+=(Math.random()-0.5)*0.6; rate=Math.max(10,Math.min(16,rate)); r[i]=rate; } // 前段静坐可测
+      if(i>258&&i<N&&Math.random()<0.4){ rate=11+(Math.random()-0.5)*0.8; r[i]=rate; } // 倒地后仍可测（呼吸证据）
+    }
+  }
+  return r;
+}
+
+/* ================= 运动表绘制 ================= */
+function drawMotion(m){
+  const cv=document.getElementById('motionChart'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,padL=64,padR=8,padT=8,padB=26;
+  const cw=W-padL-padR, ch=H-padT-padB;
+  ctx.clearRect(0,0,W,H);
+
+  // Y 轴分段（视觉压缩：0~0.05占30%，0.05~0.15占25%，0.15~0.22占15%，0.22~1占30%）
+  const segs=[[0,STILL_MAX,.30],[STILL_MAX,ACTIVE_MIN,.25],[ACTIVE_MIN,SPIKE_MIN,.15],[SPIKE_MIN,1,.30]];
+  const yOf=v=>{
+    let acc=0;
+    for(const [lo,hi,frac] of segs){
+      if(v<=hi||hi===1){ acc+= (Math.min(v,hi)-lo)/(hi-lo)*frac; return padT+ch-acc*ch; }
+      acc+=frac;
+    }
+    return padT;
+  };
+  // 色带背景
+  const bandCols=['#f1f5f9','#fefce8','#f0fdf4','#fef2f2'];
+  let y0=padT+ch;
+  segs.forEach(([lo,hi,frac],k)=>{
+    const h=ch*frac; y0-=h;
+    ctx.fillStyle=bandCols[k]; ctx.fillRect(padL,y0,cw,h);
+  });
+  // 刻度线
+  ctx.font='10px sans-serif';ctx.fillStyle='#9ca3af';ctx.textAlign='right';
+  [[0,'0'],[STILL_MAX,'0.05 静止'],[ACTIVE_MIN,'0.15 活动'],[SPIKE_MIN,'0.22 冲击'],[0.5,'0.5'],[1,'1.0']].forEach(([v,t])=>{
+    const y=yOf(v);
+    ctx.strokeStyle='#e2e8f0';ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.stroke();
+    ctx.fillText(t,padL-6,y+3);
+  });
+  // 柱
+  const bw=cw/N;
+  const lastFloor=m.floor[N-1];
+  for(let i=0;i<N;i++){
+    const v=m.a[i],x=padL+i*bw,y=yOf(v),h=padT+ch-y;
+    let col;
+    if(v>=SPIKE_MIN) col='#ef4444';
+    else if(v>=ACTIVE_MIN) col='#22c55e';
+    else if(v<Math.max(lastFloor*3,STILL_MAX)) col= v<lastFloor*1.5?'#94a3b8':'#cbd5e1';
+    else col='#cbd5e1';
+    ctx.fillStyle=col;
+    ctx.fillRect(x,y,Math.max(bw*0.7,1),Math.max(h,1));
+  }
+  // 底噪参考线
+  const fy=yOf(lastFloor);
+  ctx.strokeStyle='#f59e0b';ctx.setLineDash([6,4]);ctx.beginPath();
+  ctx.moveTo(padL,fy);ctx.lineTo(W-padR,fy);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#b45309';ctx.textAlign='left';
+  ctx.fillText('底噪 '+lastFloor.toFixed(3),padL+4,fy-4);
+  // 跌倒事件标记
+  if(m.spikeAt>=0){
+    const x=padL+m.spikeAt*bw;
+    ctx.fillStyle='#dc2626';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.beginPath();ctx.moveTo(x,padT+14);ctx.lineTo(x-6,padT+2);ctx.lineTo(x+6,padT+2);ctx.fill();
+    ctx.fillText('冲击 0.31',Math.min(Math.max(x,padL+30),W-padR-34),padT-0.5);
+  }
+  // 状态色带（底部）
+  const sh=6;
+  for(let i=0;i<N;i++){
+    const v=m.a[i];
+    ctx.fillStyle= v>=ACTIVE_MIN?'#22c55e':(v>=STILL_MAX?'#fbbf24':'#cbd5e1');
+    ctx.fillRect(padL+i*bw,padT+ch+4,bw,sh);
+  }
+}
+
+/* ================= 呼吸表绘制 ================= */
+function drawBreath(r){
+  const cv=document.getElementById('breathChart'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,padL=64,padR=8,padT=8,padB=8;
+  const cw=W-padL-padR, ch=H-padT-padB;
+  ctx.clearRect(0,0,W,H);
+  const yOf=v=> padT+ch-(Math.min(v,BR_TOP)/BR_TOP)*ch;
+  // 医学色带
+  const bands=[[0,BR_LOST,'#fef2f2'],[BR_LOST,BR_SLOW,'#fff7ed'],[BR_SLOW,BR_MAX,'#f0fdf4'],[BR_MAX,BR_TOP,'#fff7ed']];
+  bands.forEach(([lo,hi,c])=>{
+    ctx.fillStyle=c;ctx.fillRect(padL,yOf(hi),cw,yOf(lo)-yOf(hi));
+  });
+  // 正常带标注线
+  ctx.strokeStyle='#86efac';ctx.setLineDash([4,4]);
+  [BR_MIN,BR_MAX].forEach(v=>{ctx.beginPath();ctx.moveTo(padL,yOf(v));ctx.lineTo(W-padR,yOf(v));ctx.stroke();});
+  ctx.setLineDash([]);
+  ctx.font='10px sans-serif';ctx.fillStyle='#9ca3af';ctx.textAlign='right';
+  [[0,'0'],[BR_LOST,'3 消失'],[BR_SLOW,'8 浅慢'],[BR_MIN,'12'],[BR_MAX,'20 正常上限'],[BR_TOP,'30']].forEach(([v,t])=>{
+    ctx.fillText(t,padL-6,yOf(v)+3);
+  });
+  // 数据点（阶梯连接，只连相邻都锁定的点；空白=未锁定）
+  const bw=cw/N;
+  ctx.strokeStyle='#16a34a';ctx.lineWidth=2;ctx.beginPath();
+  let prev=null;
+  for(let i=0;i<N;i++){
+    if(r[i]==null){prev=null;continue;}
+    const x=padL+i*bw,y=yOf(r[i]);
+    if(prev&&i-prev.i<=3){ ctx.lineTo(x,y); } else { ctx.moveTo(x,y); ctx.lineTo(x,y); }
+    prev={i};
+  }
+  ctx.stroke();
+  for(let i=0;i<N;i++){
+    if(r[i]==null)continue;
+    const x=padL+i*bw,y=yOf(r[i]);
+    let c='#16a34a';
+    if(r[i]<BR_LOST)c='#ef4444';else if(r[i]<BR_SLOW||r[i]>BR_MAX)c='#fb923c';
+    ctx.fillStyle=c;
+    if(i%2===0){ctx.beginPath();ctx.arc(x,y,2.4,0,7);ctx.fill();}
+  }
+  ctx.lineWidth=1;
+  // 未锁定留白标注
+  let gapStart=null;
+  for(let i=0;i<=N;i++){
+    const empty=i===N||r[i]==null;
+    if(empty&&gapStart==null)gapStart=i;
+    if(!empty&&gapStart!=null){
+      if(i-gapStart>40){
+        ctx.fillStyle='#d1d5db';ctx.font='12px sans-serif';ctx.textAlign='center';
+        ctx.fillText('未锁定',padL+((gapStart+i)/2)*bw,padT+ch-10);
+      }
+      gapStart=null;
+    }
+  }
+}
+
+/* ================= 场景切换 ================= */
+const sceneText={
+  rest:{cls:'',main:'家中有人 · 静坐中',sub:'呼吸平稳，信号锁定中，一切正常',
+    meta:'<span class="pill g">呼吸 12 次/分</span><span class="pill g">信号锁定 · 共识 31/32</span><span class="pill">客厅 · 探测正常</span>',
+    time:'最近呼吸确认：刚刚 · 最近活动：2 分钟前（起身倒水）',
+    mNow:'当前 0.01 · 静止',bNow:'12 次/分 · 正常',alert:false},
+  active:{cls:'danger',main:'⚠️ 疑似跌倒 · 等待确认',sub:'检测到冲击后持续静止未恢复，语音呼叫无回应，请立即确认',
+    meta:'<span class="pill r">冲击峰值 0.31</span><span class="pill o">倒地后静止 62 秒</span><span class="pill g">呼吸 11 次/分（可测）</span>',
+    time:'事件时刻：1 分钟前 · 呼吸仍可测 —— 支持「跌倒但仍有意识」判断',
+    mNow:'当前 0.01 · 静止',bNow:'11 次/分 · 正常',alert:true},
+  empty:{cls:'silent',main:'家中无人 · 值守中',sub:'无监测目标，系统低功耗运行；防盗监测已自动接管',
+    meta:'<span class="pill gray">呼吸监测挂起</span><span class="pill gray">防盗布防中</span><span class="pill">无人已 12 分钟</span>',
+    time:'最后离开：12 分钟前 · 期间无异常活动',
+    mNow:'',bNow:'',alert:false},
+};
+function setScene(s){
+  document.querySelectorAll('.demo button').forEach(b=>{
+    b.classList.toggle('on', b.textContent.includes({rest:'静坐',active:'活动',empty:'无人'}[s]));
+  });
+  const t=sceneText[s];
+  const card=document.getElementById('statusCard');
+  card.className='status-card '+t.cls;
+  document.getElementById('statusMain').textContent=t.main;
+  document.getElementById('statusSub').textContent=t.sub;
+  document.getElementById('statusMeta').innerHTML=t.meta;
+  document.getElementById('statusTime').textContent=t.time;
+  document.getElementById('motionNow').textContent=t.mNow;
+  document.getElementById('breathNow').textContent=t.bNow;
+  document.getElementById('alertCard').classList.toggle('hidden',!t.alert);
+  const empty=s==='empty';
+  document.getElementById('motionMask').style.display=empty?'flex':'none';
+  document.getElementById('breathMask').style.display=empty?'flex':'none';
+  drawMotion(genMotion(s));
+  drawBreath(genBreath(s));
+}
+setScene('rest');
+</script>
+</body>
+</html>

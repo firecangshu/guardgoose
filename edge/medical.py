@@ -46,7 +46,108 @@ ALL_MEDICATIONS = [
     MED_DIURETIC, MED_ANALGESIC,
 ]
 
-MULTI_MED_THRESHOLD = 4  # 多重用药阈值（≥4种）
+MULTI_MED_THRESHOLD = 4  # 多重用药阈值（≥4种）——仅档案备查，不参与实时判定
+
+# ---- 基础病→检测修正系数表（千人千档的唯一来源）----
+# 调研依据（20260806 医学OSINT）：
+#   心衰 30%~60% 患者有潮式呼吸，含 5~30s 中枢性暂停；静息呼吸>25次/分提示心衰发作
+#   COPD/哮喘 稳定期静息呼吸 20~24 次/分（浅快、呼气延长），>24 才是急性加重
+#   贫血 代偿性呼吸加快，静息基线偏高
+#   癫痫 发作期呼吸暂停 10~30s 是病症本身，发作后呼吸先恢复但不规则
+#   脑梗 潮式/长吸式呼吸=脑干受累（节律异常权重加重）；偏瘫致运动幅度下降
+#   帕金森 小碎步/拖步→活动强度偏低；冻结步态=活动中骤停，形似 Type B 跌倒候选
+# ⚠️ 具体数值为经验值待实测校准：原则是「只松防误报、严只用在确认环节」，
+#    绝不做「因为有病所以更容易触发报警」的灵敏度提升。
+CONDITION_COEFFICIENTS: dict[str, dict[str, Any]] = {
+    HX_HEART: {"br_elevated_adjust": 5, "br_lost_confirm_s": 30,
+               "rhythm_abnormal_weight": False},
+    HX_STROKE: {"active_min_adjust": -0.05, "voice_timeout": 60,
+                "rhythm_abnormal_weight": True},
+    HX_EPILEPSY: {"br_lost_confirm_s": 30, "voice_timeout": 60},
+    HX_DIABETES: {"voice_timeout": 60},
+    HX_PARKINSON: {"active_min_adjust": -0.05, "type_b_still_s": 25},
+    HX_ANEMIA: {"br_elevated_adjust": 2},
+    # 高血压：不加检测系数（zone3_max_stay 升级逻辑已单独实现）
+}
+
+# 字段默认值（build_adjustments 的起点，即「无病史」基准）
+DEFAULT_ADJUSTMENTS: dict[str, Any] = {
+    "br_elevated_adjust": 0,        # 呼吸「加快」警戒线上移量（次/分）
+    "br_lost_confirm_s": 0,         # 呼吸消失需持续多少秒才告警（0=立即）
+    "active_min_adjust": 0.0,       # 活动判定带下探量（负值=更灵敏认小碎步）
+    "type_b_still_s": 0,            # Type B 确认时长覆盖（0=用默认 FALL_B_STILL_S）
+    "skip_voice": False,            # 跳过现场语音询问（心梗）
+    "voice_timeout": 90,            # 语音询问等待秒数
+    "requery_wait_s": 20,           # 第二轮确证等待秒数（档案有慢性病→15）
+    "zone3_max_stay": 0,            # 告警后多少秒未处理自动升级（0=不限）
+    "rhythm_abnormal_weight": False,  # 呼吸节律异常视为恶化信号（脑梗）
+    "conditions_applied": [],       # 实际生效的病史清单（供守护页展示修正痕迹）
+}
+
+
+def build_adjustments(profile: "MedicalProfile") -> dict[str, Any]:
+    """把档案病史汇总成一份扁平修正系数（多病叠加：松取最松、严取最严）。
+
+    这是状态机/守护页读取修正值的唯一入口：
+    - 防误报类（br_elevated_adjust 上移、active_min 下探）取最松值
+    - 确认加严类（br_lost_confirm_s、type_b_still_s）取最严值
+    - 开关类（skip_voice/rhythm_weight）任一病史命中即生效
+    """
+    adj = {**DEFAULT_ADJUSTMENTS, "conditions_applied": []}
+    codes = []
+    for code in profile.conditions:
+        coef = CONDITION_COEFFICIENTS.get(code)
+        if coef is None:
+            coef = _custom_disease_coefficients(code)
+        if coef:
+            codes.append(code)
+            adj["br_elevated_adjust"] = max(adj["br_elevated_adjust"],
+                                            coef.get("br_elevated_adjust", 0))
+            adj["br_lost_confirm_s"] = max(adj["br_lost_confirm_s"],
+                                           coef.get("br_lost_confirm_s", 0))
+            adj["active_min_adjust"] = min(adj["active_min_adjust"],
+                                           coef.get("active_min_adjust", 0.0))
+            adj["type_b_still_s"] = max(adj["type_b_still_s"],
+                                        coef.get("type_b_still_s", 0))
+            adj["skip_voice"] = adj["skip_voice"] or coef.get("skip_voice", False)
+            adj["rhythm_abnormal_weight"] = (adj["rhythm_abnormal_weight"]
+                                             or coef.get("rhythm_abnormal_weight", False))
+            if coef.get("voice_timeout"):
+                adj["voice_timeout"] = min(adj["voice_timeout"], coef["voice_timeout"])
+            adj["zone3_max_stay"] = max(adj["zone3_max_stay"],
+                                        coef.get("zone3_max_stay", 0))
+    # 心梗跳过语音（与 is_high_risk 一致，兜底防系数表漏配）
+    if HX_HEART in profile.conditions:
+        adj["skip_voice"] = True
+        adj["voice_timeout"] = 0
+    # 第二轮确证等待：有慢性病档案缩短至 15s（恶化风险高，少等快升）
+    if profile.conditions:
+        adj["requery_wait_s"] = 15
+    adj["conditions_applied"] = codes
+    return adj
+
+
+def _custom_disease_coefficients(code: str) -> dict[str, Any] | None:
+    """自定义疾病的检测修正系数（开放式入口，未配置则为空）。"""
+    d = _custom_diseases.get(code)
+    if d is None:
+        return None
+    coef: dict[str, Any] = {}
+    if d.br_elevated_adjust:
+        coef["br_elevated_adjust"] = d.br_elevated_adjust
+    if d.br_lost_confirm_s:
+        coef["br_lost_confirm_s"] = d.br_lost_confirm_s
+    if d.active_min_adjust:
+        coef["active_min_adjust"] = d.active_min_adjust
+    if d.type_b_still_s:
+        coef["type_b_still_s"] = d.type_b_still_s
+    if d.skip_voice:
+        coef["skip_voice"] = True
+    if d.voice_timeout_override:
+        coef["voice_timeout"] = d.voice_timeout_override
+    if d.zone3_max_stay:
+        coef["zone3_max_stay"] = d.zone3_max_stay
+    return coef or None
 
 
 # ---- 开放式疾病注册表 ----
@@ -63,6 +164,11 @@ class CustomDisease:
     voice_timeout_override: int = 0  # 语音超时覆盖（0=不覆盖，用默认值）
     skip_voice: bool = False         # 是否跳过语音确认
     zone3_max_stay: int = 0          # Zone 3 最大停留时间（0=不限）
+    # ---- 检测修正系数（千人千档，0=不修正）----
+    br_elevated_adjust: int = 0      # 呼吸「加快」警戒线上移量（如COPD +4）
+    br_lost_confirm_s: int = 0       # 呼吸消失需持续秒数（病态暂停防误报）
+    active_min_adjust: float = 0.0   # 活动判定带偏移（偏瘫/小碎步用负值下探）
+    type_b_still_s: int = 0          # Type B 确认时长覆盖（冻结步态防误报）
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -118,6 +224,10 @@ def get_disease_strategy(code: str) -> dict[str, Any]:
             "voice_timeout_override": custom.voice_timeout_override,
             "skip_voice": custom.skip_voice,
             "zone3_max_stay": custom.zone3_max_stay,
+            "br_elevated_adjust": custom.br_elevated_adjust,
+            "br_lost_confirm_s": custom.br_lost_confirm_s,
+            "active_min_adjust": custom.active_min_adjust,
+            "type_b_still_s": custom.type_b_still_s,
         }
 
     # 预设疾病策略
@@ -344,18 +454,8 @@ def adjust_zone_for_profile(fall_event: dict[str, Any], profile: MedicalProfile)
             "缓慢扶起，防止再次跌倒",
         ]
 
-    # 多重用药 → 标注药源性
-    elif profile.is_multi_medication:
-        result["alert_tag"] = "药源性"
-        med_count = len(profile.medications)
-        result["suspected_cause"] = f"药源性跌倒（服用{med_count}种药物）"
-        result["advice"] = [
-            f"老人当前服用{med_count}种药物，可能为药物副作用导致跌倒",
-            "排查近期用药变化",
-            "确认是否有头晕/嗜睡等副作用",
-        ]
-
-    # 无特殊病史
+    # 无特殊病史（用药不参与判定：药源性分支已按产品边界移除，
+    # medications 仅档案备查，供急救时提供给120）
     else:
         if br_state in ("elevated", "irregular", "shallow"):
             result["zone"] = 3
@@ -405,6 +505,10 @@ CREATE TABLE IF NOT EXISTS custom_diseases (
     voice_timeout_override INTEGER DEFAULT 0,
     skip_voice  INTEGER DEFAULT 0,
     zone3_max_stay INTEGER DEFAULT 0,
+    br_elevated_adjust INTEGER DEFAULT 0,
+    br_lost_confirm_s INTEGER DEFAULT 0,
+    active_min_adjust REAL DEFAULT 0,
+    type_b_still_s INTEGER DEFAULT 0,
     created_at  TEXT
 );
 """
@@ -425,6 +529,16 @@ def init_medical_db(conn: sqlite3.Connection) -> None:
     ):
         if col not in cols:
             conn.execute(ddl)
+    # 旧库迁移：自定义疾病表补检测修正系数列
+    cd_cols = {r[1] for r in conn.execute("PRAGMA table_info(custom_diseases)")}
+    for col, ddl in (
+        ("br_elevated_adjust", "ALTER TABLE custom_diseases ADD COLUMN br_elevated_adjust INTEGER DEFAULT 0"),
+        ("br_lost_confirm_s", "ALTER TABLE custom_diseases ADD COLUMN br_lost_confirm_s INTEGER DEFAULT 0"),
+        ("active_min_adjust", "ALTER TABLE custom_diseases ADD COLUMN active_min_adjust REAL DEFAULT 0"),
+        ("type_b_still_s", "ALTER TABLE custom_diseases ADD COLUMN type_b_still_s INTEGER DEFAULT 0"),
+    ):
+        if col not in cd_cols:
+            conn.execute(ddl)
     # 插入默认记录（如果表为空）
     count = conn.execute("SELECT COUNT(*) FROM medical_profile").fetchone()[0]
     if count == 0:
@@ -435,6 +549,7 @@ def init_medical_db(conn: sqlite3.Connection) -> None:
         )
     # 启动时把已确认的自定义疾病从库里加载回注册表（档案备份恢复）
     for row in conn.execute("SELECT * FROM custom_diseases"):
+        keys = row.keys()
         disease = CustomDisease(
             code=row["code"], name=row["name"], category=row["category"] or "",
             description=row["description"] or "", fall_risk_note=row["fall_risk_note"] or "",
@@ -443,6 +558,10 @@ def init_medical_db(conn: sqlite3.Connection) -> None:
             voice_timeout_override=row["voice_timeout_override"] or 0,
             skip_voice=bool(row["skip_voice"]),
             zone3_max_stay=row["zone3_max_stay"] or 0,
+            br_elevated_adjust=(row["br_elevated_adjust"] or 0) if "br_elevated_adjust" in keys else 0,
+            br_lost_confirm_s=(row["br_lost_confirm_s"] or 0) if "br_lost_confirm_s" in keys else 0,
+            active_min_adjust=(row["active_min_adjust"] or 0.0) if "active_min_adjust" in keys else 0.0,
+            type_b_still_s=(row["type_b_still_s"] or 0) if "type_b_still_s" in keys else 0,
         )
         _custom_diseases[disease.code] = disease
     conn.commit()
@@ -453,13 +572,16 @@ def _persist_custom_disease(conn: sqlite3.Connection, disease: CustomDisease) ->
     conn.execute(
         "INSERT OR REPLACE INTO custom_diseases "
         "(code, name, category, description, fall_risk_note, breathing_impact, "
-        " advice, voice_timeout_override, skip_voice, zone3_max_stay, created_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        " advice, voice_timeout_override, skip_voice, zone3_max_stay, "
+        " br_elevated_adjust, br_lost_confirm_s, active_min_adjust, type_b_still_s, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (disease.code, disease.name, disease.category, disease.description,
          disease.fall_risk_note, disease.breathing_impact,
          json.dumps(disease.advice, ensure_ascii=False),
          disease.voice_timeout_override, int(disease.skip_voice),
          disease.zone3_max_stay,
+         disease.br_elevated_adjust, disease.br_lost_confirm_s,
+         disease.active_min_adjust, disease.type_b_still_s,
          datetime.now().astimezone().isoformat(timespec="seconds")),
     )
     conn.commit()

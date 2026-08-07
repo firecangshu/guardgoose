@@ -45,18 +45,15 @@ BREATHING_ALERT_MAP = {
 }
 
 # ---- 规则版降级表（Qwen 不可用时使用）----
+# 双证据线铁律（20260806 定稿）：紧急 = 运动突增 + 呼吸变化同时成立。
+# 只有动作冲击、呼吸无变化的事件（fall_breathing_ok/suspected_fall）
+# 在 decide() 入口直接返回 None（仅事件库静默记录，不打扰）。
 _RULES: dict[str, tuple[str, str, str]] = {
-    EVT_FALL_BREATHING_OK: (
-        "warning", "voice_checking",
-        "检测到跌倒（尖峰{amp_var_peak}、静止{still_after_s}s），"
-        "呼吸频率{breathing_rate}次/分处于正常范围，"
-        "已发起语音确证「您还好吗」，{timeout}秒无回应将升级告警。",
-    ),
     EVT_FALL_BREATHING_BAD: (
         "emergency", "notifying_family",
-        "检测到跌倒且呼吸异常（{breathing_state}，{breathing_rate}次/分），"
-        "跳过语音确证，立即告警子女。"
-        "医学依据：跌倒后呼吸异常提示可能存在脑缺氧或心源性病因。",
+        "双证据线成立：检测到跌倒且呼吸异常（{breathing_state}，{breathing_rate}次/分），"
+        "立即告警子女。"
+        "医学依据：跌倒后呼吸变化提示可能存在脑缺氧或心源性病因。",
     ),
     EVT_BREATHING_LOST: (
         "emergency", "emergency_call",
@@ -69,9 +66,9 @@ _RULES: dict[str, tuple[str, str, str]] = {
         "已提升监测频率，持续关注。",
     ),
     EVT_SUSPECTED_FALL: (
-        "emergency", "voice_checking",
-        "检测到剧烈波动后陷入持续静止（尖峰{amp_var_peak}、静止{still_after_s}s），"
-        "符合疑似跌倒特征，已发起语音确证。",
+        "warning", "monitoring",
+        "检测到活动模式骤停（静止{still_after_s}s）但呼吸无变化，"
+        "双证据线未成立，仅记录关注不打扰。",
     ),
     EVT_STILL_TOO_LONG: (
         "warning", "voice_checking",
@@ -94,22 +91,29 @@ _RULES: dict[str, tuple[str, str, str]] = {
     ),
 }
 
+# 双证据线未成立的事件：仅事件库静默记录，不产生告警（不打扰）
+# fall_breathing_ok：运动冲击但呼吸无变化（伸懒腰/弯腰）
+# suspected_fall：Type B/C 活动骤停但呼吸无变化（走动后坐下/冻结步态）
+_SILENT_RECORD_TYPES = {EVT_FALL_BREATHING_OK, EVT_SUSPECTED_FALL}
+
 # ---- Qwen 系统提示词（医学知识+病历上下文注入）----
 _SYSTEM_PROMPT = """你是护院鹅系统的认知决策引擎，负责分析老人的守护事件并做出告警决策。
 
 ## 核心原则
-1. 呼吸感知优先：呼吸异常比活动异常更危险，因为脑缺氧后老人可能无法呼救
-2. 病历个性化：不同病史的老人跌倒原因概率不同，需结合病历调整策略
-3. 分级告警（必须严格遵守，不得自行降级或升级）
+1. 双证据线铁律：紧急 = 运动幅度突然增大 + 呼吸频率加快/衰减，两条必须同时成立。
+   呼吸是比大幅度动作更准的参照物：真摔倒必然引起呼吸变化；
+   只有动作冲击、呼吸无变化 = 伸懒腰/弯腰等普通动作，不告警（这类事件不会送到你这里）。
+2. 呼吸感知优先：呼吸异常比活动异常更危险，因为脑缺氧后老人可能无法呼救
+3. 病历个性化：不同病史的老人跌倒原因概率不同，需结合病历调整策略（档案修正系数已附在上下文中）
+4. 分级告警（必须严格遵守，不得自行降级或升级）
 
 ## level 严格映射表（必须按此表返回 level）
 | 事件场景 | level | state |
 |---------|-------|-------|
-| 跌倒+呼吸正常+无心梗史 | warning | voice_checking |
-| 跌倒+呼吸正常+心梗/心律失常史 | emergency | notifying_family |
 | 跌倒+呼吸异常（elevated/irregular） | emergency | notifying_family |
 | 跌倒+呼吸异常（shallow） | emergency | emergency_call |
-| 呼吸消失（lost） | emergency | emergency_call |
+| 跌倒后呼吸消失（lost） | emergency | emergency_call |
+| 呼吸消失（lost，无跌倒） | emergency | emergency_call |
 | 呼吸加快（elevated，无跌倒） | warning | monitoring |
 | 呼吸节律不整（irregular，无跌倒） | warning | monitoring |
 | 呼吸浅慢（shallow，无跌倒） | emergency | emergency_call |
@@ -125,9 +129,9 @@ _SYSTEM_PROMPT = """你是护院鹅系统的认知决策引擎，负责分析老
 - monitoring: 持续监测中
 - pending: 待确认
 
-## 呼吸模式五级分类
-- normal（12-20次/分）→ 不告警
-- elevated（>20次/分，轻度缺氧）→ 关注
+## 呼吸模式五级分类（正常带上限已按档案修正，以事件中给出的呼吸状态为准）
+- normal（正常带内）→ 不告警
+- elevated（超出修正后正常带，轻度缺氧）→ 关注
 - irregular（节律不整，中度缺氧）→ 通知子女
 - shallow（浅慢/潮式呼吸，重度缺氧）→ 紧急呼叫
 - lost（消失）→ 紧急呼叫
@@ -144,6 +148,10 @@ def decide(event: dict[str, Any], profile: MedicalProfile | None = None) -> dict
     """
     if profile is None:
         profile = MedicalProfile()
+
+    # 双证据线铁律：只有运动冲击、呼吸无变化 → 静默记录不告警（不打扰）
+    if event["type"] in _SILENT_RECORD_TYPES:
+        return None
 
     # 病历个性化调整（跌倒类事件）
     adjusted = None
@@ -291,6 +299,7 @@ def _build_event_context(event: dict[str, Any], profile: MedicalProfile,
         "当前用药": profile.medications,
         "体重": f"{profile.weight_kg}kg" if profile.weight_kg > 0 else "未填写",
         "自定义疾病": [d.to_dict() for d in _custom_disease_context()],
+        "档案修正系数": _profile_adjustments_context(profile),
         "多重用药": profile.is_multi_medication,
         "语音超时配置": f"{profile.voice_timeout}秒" if profile.voice_timeout > 0 else "跳过语音",
         "分区": event.get("zone", ""),
@@ -354,6 +363,19 @@ def _custom_disease_context() -> list:
     from . import medical
     return [d for d in (medical.get_custom_disease(item["code"])
                         for item in medical.list_custom_diseases()) if d]
+
+
+def _profile_adjustments_context(profile: MedicalProfile) -> dict[str, Any]:
+    """档案病史折算的检测修正系数（供 Qwen 理解该老人的个性化判定边界）。"""
+    from . import medical
+    adj = medical.build_adjustments(profile)
+    return {
+        "生效病史": adj["conditions_applied"],
+        "呼吸正常带上限": C.BR_RATE_ELEVATED + adj["br_elevated_adjust"],
+        "呼吸消失确认秒数": adj["br_lost_confirm_s"],
+        "语音询问等待秒数": adj["voice_timeout"],
+        "跳过语音询问": adj["skip_voice"],
+    }
 
 
 def lookup_disease(disease_name: str, age: int = 75) -> dict[str, Any]:

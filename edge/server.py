@@ -23,7 +23,8 @@ from . import config as C
 from . import guardian
 from . import medical
 from .db import open_store
-from .protocol import EVENT_TYPES, Event, EVT_FALL_BREATHING_OK, SRC_DEMO_INJECT
+from .protocol import (EVENT_TYPES, Event, EVT_FALL_BREATHING_BAD, EVT_FALL_RECOVERED,
+                        EVT_VOICE_REQUERY, SRC_DEMO_INJECT, SRC_CSI_LIVE, ZONE_RED)
 from .state_machine import SampleProcessor
 from .voice import VoiceConfirmSession
 
@@ -33,6 +34,17 @@ app = FastAPI(title="护院鹅 Edge")
 store = open_store(C.DB_PATH)
 processor = SampleProcessor(zone="living")
 voice_session = VoiceConfirmSession(elder_name="奶奶", timeout_s=90)
+
+
+def _apply_profile_to_processor() -> None:
+    """把档案病史修正系数注入状态机 + 同步语音会话节奏（启动/存档/重置时调用）。"""
+    profile = medical.load_profile(store._conn)
+    processor.apply_profile(profile)
+    adj = processor.adjustments
+    voice_session.timeout_s = adj["voice_timeout"]
+
+
+_apply_profile_to_processor()
 
 
 class ConnectionManager:
@@ -90,16 +102,52 @@ class SampleIn(BaseModel):
     zone: str | None = None
     breathing_rate: int = 0           # 呼吸频率（次/分），0=未检测
     breathing_state: str = ""          # normal/elevated/irregular/shallow/lost
+    noise_floor: float = 0.0           # 环境底噪估计（桥接器动态估计，空调噪声补偿）
 
 
 async def _handle_event(ev: Event) -> None:
     """事件统一处理：入库 → 派生告警 → 广播。"""
     store.insert_event(ev)
     await manager.broadcast({"kind": "event", "data": ev.to_dict()})
-    # Zone 2 语音确证触发
-    if ev.type == EVT_FALL_BREATHING_OK:
-        voice_data = voice_session.start()
+    # 双证据线成立（跌倒+呼吸异常）→ 现场语音询问（确证链第一轮）；
+    # 心梗等 skip_voice 档案直接跳过，给老人取消机会仅适用于非高危档案
+    if ev.type == EVT_FALL_BREATHING_BAD and not processor.adjustments["skip_voice"] \
+            and processor._voice_round == 0 and ev.guard_zone == ZONE_RED:
+        processor._voice_round = 1
+        processor._zone_timer = 0
+        voice_data = {**voice_session.start(), "round": 1}
         await manager.broadcast({"kind": "voice_confirm", "data": voice_data})
+    # 第一轮无回应 → 第二轮询问：重播语音 + 生成「确证中」告警（ack_required）
+    elif ev.type == EVT_VOICE_REQUERY:
+        voice_session.timeout_s = processor._requery_wait_s
+        voice_data = {**voice_session.start(), "round": 2}
+        await manager.broadcast({"kind": "voice_confirm", "data": voice_data})
+        requery_alert = {
+            "alert_id": f"alt_{ev.event_id[-8:]}",
+            "event_id": ev.event_id,
+            "created_at": ev.ts,
+            "level": "red",
+            "state": "voice_checking",
+            "agent_reason": "第一轮语音询问无回应，已提升告警级别并再次询问，"
+                            f"等待 {processor._requery_wait_s} 秒，请确认老人情况",
+            "agent_source": "rule",
+            "alert_tag": "确证中",
+            "suspected_cause": "疑似跌倒 · 二轮确证中",
+            "elder_name": medical.load_profile(store._conn).elder_name,
+            "ack_required": True,
+            "closed_at": None,
+            "closed_by": None,
+        }
+        store.insert_alert(requery_alert)
+        sys_log("warn", "第一轮语音无回应 · 第二轮询问已发起，报警通知家人")
+        await manager.broadcast({"kind": "alert", "data": requery_alert})
+    # 运动恢复自解除：确证链进行中运动恢复均速且气息平稳
+    elif ev.type == EVT_FALL_RECOVERED:
+        processor._voice_round = 0
+        voice_session.reset()
+        sys_log("info", "运动恢复均速且气息平稳 · 告警已自动解除，事件库留痕")
+        await manager.broadcast({"kind": "alert_cleared",
+                                 "data": {"reason": "运动恢复均速且气息平稳，自动解除"}})
     # 加载病历，实现个性化告警
     profile = medical.load_profile(store._conn)
     alert = guardian.decide(ev.to_dict(), profile)
@@ -112,19 +160,29 @@ async def _handle_event(ev: Event) -> None:
 @app.post("/ingest/sample")
 async def ingest_sample(s: SampleIn):
     global _last_sample_wall
+    # 真实接入闸门：演示播放在进程内直注状态机，不走本接口；
+    # 未开真实接入时拒收外部样本，防止两股数据流混入同一状态机
+    if not _mode_state["real_enabled"]:
+        return JSONResponse(
+            status_code=403,
+            content={"ok": False,
+                     "message": "真实接入未开启，样本已拒收。请先开启真实接入开关（POST /api/source-mode/real）"})
     _last_sample_wall = time.time()
     events = processor.process(s.ts, s.sim_t, s.intensity, s.zone,
                                s.breathing_rate, s.breathing_state)
     for ev in events:
         await _handle_event(ev)
-    # 广播实时活动强度+呼吸状态，供子女端画曲线
+    # 广播实时活动强度+呼吸状态+语义三态，供子女端画曲线与状态条
     await manager.broadcast({
         "kind": "sample",
         "data": {"ts": s.ts, "sim_t": s.sim_t, "intensity": s.intensity,
                  "zone": s.zone or processor.zone, "present": processor.present,
                  "breathing_rate": s.breathing_rate,
                  "breathing_state": s.breathing_state or "normal",
-                 "guard_zone": processor.guard_zone},
+                 "noise_floor": s.noise_floor,
+                 "guard_zone": processor.guard_zone,
+                 "semantic_state": processor.semantic_state,
+                 "breathing_band_max": processor.breathing_band_max},
     })
     return {"events": [e.type for e in events]}
 
@@ -163,6 +221,7 @@ async def api_reset():
     _mode_state["real_enabled"] = False
     store.reset()
     processor = SampleProcessor(zone="living")
+    _apply_profile_to_processor()
     await manager.broadcast({"kind": "reset", "data": {}})
     await manager.broadcast({"kind": "source_mode", "data": dict(_mode_state)})
     sys_log("warn", "系统已重置 · 事件库清空，状态机与数据源开关归零")
@@ -172,15 +231,21 @@ async def api_reset():
 # ---- 数据源模式：真实接入 > 演示场景 > 待机（无数据流）----
 SCEN_DIR = Path(__file__).resolve().parent.parent / "replay" / "scenarios"
 
+# 演示场景层级：一级=无人/有人；二级（有人之下）=正常（休憩/移动）/异常（疑似跌倒几种状态）
 DEMO_SCENARIOS = [
-    {"scenario": "test_normal_motion", "label": "正常状态",
-     "desc": "正常活动、呼吸平稳，系统绿区巡航"},
-    {"scenario": "day_fall", "label": "跌倒·语音确证",
-     "desc": "跌倒冲击→倒地静止→语音确证全流程"},
-    {"scenario": "day_zone2_timeout", "label": "跌倒·无回应",
-     "desc": "观察期无人回应，告警逐级升级"},
-    {"scenario": "day_breathing_lost", "label": "呼吸消失",
-     "desc": "呼吸渐弱直至消失，触发红色告警"},
+    # 一级：无人
+    {"scenario": "demo_absent", "label": "无人",
+     "desc": "全程无活动、呼吸测不到，系统不断言不告警（演示对比用）"},
+    # 二级：有人 · 正常
+    {"scenario": "demo_rest", "label": "有人 · 正常 · 休憩中",
+     "desc": "无活动、气息均匀，系统判定正常·休憩中·呼吸平稳"},
+    {"scenario": "demo_active", "label": "有人 · 正常 · 移动中",
+     "desc": "匀速活动、气息均匀，系统判定正常·移动中"},
+    # 二级：有人 · 异常（疑似跌倒的几种状态）
+    {"scenario": "demo_fall_moving", "label": "有人 · 异常 · 疑似跌倒（移动中）",
+     "desc": "均速移动中突然剧烈运动+气息紊乱，双证据成立告警进入同一确证链；本场景现场无应答，演示升级危机"},
+    {"scenario": "demo_fall_still", "label": "有人 · 异常 · 疑似跌倒（静止中）",
+     "desc": "静止中突然剧烈运动+气息紊乱，双证据成立告警进入同一确证链；本场景现场起身恢复，演示自动解除"},
 ]
 
 _mode_state = {"real_enabled": False, "demo_enabled": False, "demo_scenario": ""}
@@ -230,7 +295,9 @@ async def _run_demo(name: str) -> None:
                     "data": {"ts": ts, "sim_t": sim_t, "intensity": intensity,
                              "zone": zone, "present": processor.present,
                              "breathing_rate": br_rate, "breathing_state": br_st,
-                             "guard_zone": processor.guard_zone},
+                             "guard_zone": processor.guard_zone,
+                             "semantic_state": processor.semantic_state,
+                             "breathing_band_max": processor.breathing_band_max},
                 })
                 sim_t += 1
                 await asyncio.sleep(1.0 / speed)
@@ -241,6 +308,9 @@ async def _run_demo(name: str) -> None:
             _mode_state["demo_enabled"] = False
             _mode_state["demo_scenario"] = ""
             await manager.broadcast({"kind": "demo", "data": {"running": False, "scenario": ""}})
+            # 剧本播完自动关闭：同步 source_mode，避免前端开关停留在“开”位
+            await manager.broadcast({"kind": "source_mode", "data": dict(_mode_state)})
+            sys_log("info", f"演示剧本「{name}」播放完毕 · 演示接入已自动关闭")
 
 
 async def _stop_demo() -> None:
@@ -285,6 +355,9 @@ async def api_set_demo(body: SourceModeDemoIn):
         await _stop_demo()
         # 状态机归零，让每个场景从干净状态开场（事件历史保留）
         processor = SampleProcessor(zone="living")
+        _apply_profile_to_processor()
+        # 通知前端清三态/告警卡/曲线残留（不清事件库）
+        await manager.broadcast({"kind": "demo_state_cleared", "data": {}})
         _mode_state["demo_enabled"] = True
         _mode_state["demo_scenario"] = body.scenario
         _demo_task = asyncio.create_task(_run_demo(body.scenario))
@@ -302,7 +375,9 @@ async def api_set_demo(body: SourceModeDemoIn):
 @app.post("/api/source-mode/real")
 async def api_set_real(body: SourceModeRealIn):
     """真实接入开关（优先级最高）：开启即自动关闭演示，
-    探测器上报的 /ingest/sample 信号直接联动底层判定逻辑。"""
+    探测器上报的 /ingest/sample 信号直接联动底层判定逻辑。
+    开启时状态机切换到硬件轨（source=csi_live），事件标记真实来源。"""
+    global processor, _last_sample_wall
     _mode_state["real_enabled"] = body.enabled
     if body.enabled and _mode_state["demo_enabled"]:
         await _stop_demo()
@@ -314,6 +389,13 @@ async def api_set_real(body: SourceModeRealIn):
     else:
         msg = "真实接入已关闭"
         sys_log("info", "真实接入已关闭")
+    if body.enabled:
+        # 状态机归零并切换硬件轨，让真实数据从干净状态开场
+        processor = SampleProcessor(zone="living", source=SRC_CSI_LIVE)
+        _apply_profile_to_processor()
+        # 归零样本新鲜度：真实接入按实际反馈，不吃演示残留的“假良好”，
+        # 无硬件时从开启那刻就如实进入检测中/断开，等真实 /ingest/sample 到达才转接通
+        _last_sample_wall = None
     await manager.broadcast({"kind": "source_mode", "data": dict(_mode_state)})
     return {"ok": True, **_mode_state, "message": msg}
 
@@ -332,12 +414,20 @@ async def api_system_logs():
 @app.get("/api/status")
 async def api_status():
     return {"present": processor.present, "zone": processor.zone,
-            "guard_zone": processor.guard_zone}
+            "guard_zone": processor.guard_zone,
+            "semantic_state": processor.semantic_state,
+            "breathing_band_max": processor.breathing_band_max,
+            "adjustments": processor.adjustments}
 
 
 # ---- 设备连接状态 API ----
 def _device_freshness() -> tuple[str, float]:
-    """返回 (连接状态, 距上次样本秒数)。"""
+    """返回 (连接状态, 距上次样本秒数)。
+    演示接入时假设探测器信号良好：剧本以倍速批次注入，
+    真实墙钟间隔不能反映虚拟数据流的健康度，直接视为接通。"""
+    if _mode_state["demo_enabled"]:
+        lag = 0.0 if _last_sample_wall is None else time.time() - _last_sample_wall
+        return "connected", lag
     if _last_sample_wall is None:
         return "disconnected", -1.0
     lag = time.time() - _last_sample_wall
@@ -366,7 +456,9 @@ async def api_device_diagnosis():
     """信号不佳时的诊断详情：供子女端排查面板展示。"""
     state, lag = _device_freshness()
     tips: list[str] = []
-    if state == "disconnected":
+    if _mode_state["demo_enabled"]:
+        tips = ["演示接入：假设探测器信号良好，虚拟数据流按剧本稳定上报"]
+    elif state == "disconnected":
         tips = [
             "超过30秒未收到探测器数据，判定为断开",
             "检查发射端(TX)与接收端(RX)是否通电、指示灯是否正常",
@@ -451,14 +543,10 @@ async def api_save_profile(p: ProfileIn):
         address=p.address, emergency_phones=[x for x in p.emergency_phones if x][:3],
     )
     medical.save_profile(store._conn, profile)
-    # 更新状态机的语音超时
-    processor._zone2_voice_timeout = profile.voice_timeout
-    # 高血压病史：Zone 3 停留超过10分钟自动升级
-    if medical.HX_HYPERTENSION in profile.conditions:
-        processor._zone3_max_stay = 600  # 10分钟
-    else:
-        processor._zone3_max_stay = 0
+    # 档案存档即重新注入修正系数（千人千档）：语音超时/跳过语音/zone3升级一并接管
+    _apply_profile_to_processor()
     await manager.broadcast({"kind": "profile_updated", "data": profile.to_dict()})
+    await manager.broadcast({"kind": "profile_adjustments", "data": processor.adjustments})
     return {"ok": True, "profile": {
         "name": profile.elder_name,
         "diseases": profile.conditions,
@@ -494,6 +582,15 @@ async def api_family_confirm():
     processor._family_confirmed = True
     await manager.broadcast({"kind": "family_confirmed", "data": {"confirmed": True}})
     return {"ok": True, "message": "已确认收到告警"}
+
+
+@app.post("/api/alert-ack")
+async def api_alert_ack():
+    """家人已知晓（第二轮报警响铃的停止条件）。"""
+    processor._family_confirmed = True
+    await manager.broadcast({"kind": "alert_acked", "data": {"acked": True}})
+    sys_log("info", "家人已知晓告警 · 响铃停止")
+    return {"ok": True, "message": "已知晓，响铃已停止"}
 
 
 # ---- 护家模式控制接口 ----
@@ -540,14 +637,17 @@ async def api_voice_respond(answer: str = "ok"):
     state = voice_session.respond(answer)
     await manager.broadcast({"kind": "voice_responded", "data": {"state": state, "answer": answer}})
     if state == "ok":
-        # 老人说没事 → 消警，重置到绿区
+        # 老人说没事 → 消警，重置到绿区（跌倒语义一并解除）
         processor._reset_to_green()
         processor._fall_watch = None
+        processor._fall_state_s = 0.0
         processor._still_too_long_fired = False
+        processor._voice_round = 0
         await manager.broadcast({"kind": "alert_cleared", "data": {"reason": "老人回应正常"}})
     elif state == "help":
-        # 老人求助 → 升级 Zone 3
+        # 老人求助（含检测到呻吟等价入口）→ 加强告警等级直升 RED，确证链终止
         from .protocol import ZONE_RED
+        processor._voice_round = 0
         processor._set_zone(ZONE_RED)
         await manager.broadcast({"kind": "alert_escalated", "data": {"reason": "老人求助，升级告警"}})
     return {"ok": True, "state": state}
@@ -565,6 +665,11 @@ class DiseaseIn(BaseModel):
     voice_timeout_override: int = 0
     skip_voice: bool = False
     zone3_max_stay: int = 0
+    # 检测修正系数（千人千档，0=不修正）
+    br_elevated_adjust: int = 0
+    br_lost_confirm_s: int = 0
+    active_min_adjust: float = 0.0
+    type_b_still_s: int = 0
 
 
 @app.get("/api/diseases")
@@ -590,6 +695,10 @@ async def api_add_disease(d: DiseaseIn):
         breathing_impact=d.breathing_impact, advice=d.advice,
         voice_timeout_override=d.voice_timeout_override,
         skip_voice=d.skip_voice, zone3_max_stay=d.zone3_max_stay,
+        br_elevated_adjust=d.br_elevated_adjust,
+        br_lost_confirm_s=d.br_lost_confirm_s,
+        active_min_adjust=d.active_min_adjust,
+        type_b_still_s=d.type_b_still_s,
     )
     medical.register_disease(disease, conn=store._conn)
     # 并入档案病史（去重），形成个性化医疗档案备份
@@ -597,7 +706,10 @@ async def api_add_disease(d: DiseaseIn):
     if disease.code not in profile.conditions:
         profile.conditions.append(disease.code)
         medical.save_profile(store._conn, profile)
+    # 新病史立即生效：重新注入修正系数
+    _apply_profile_to_processor()
     await manager.broadcast({"kind": "profile_updated", "data": profile.to_dict()})
+    await manager.broadcast({"kind": "profile_adjustments", "data": processor.adjustments})
     return {"ok": True, "disease": disease.to_dict()}
 
 
@@ -610,6 +722,8 @@ async def api_remove_disease(code: str):
         if code in profile.conditions:
             profile.conditions.remove(code)
             medical.save_profile(store._conn, profile)
+        _apply_profile_to_processor()
+        await manager.broadcast({"kind": "profile_adjustments", "data": processor.adjustments})
     return {"ok": removed, "code": code}
 
 

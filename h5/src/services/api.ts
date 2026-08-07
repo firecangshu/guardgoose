@@ -172,6 +172,7 @@ export const api = {
   getProfile: () => get<ProfileData>('/profile'),
   saveProfile: (p: ProfileData) => post<{ ok: boolean; profile: any }>('/profile', p),
   familyConfirm: () => post<{ ok: boolean }>('/family/confirm'),
+  alertAck: () => post<{ ok: boolean }>('/alert-ack'),
   getGuardMode: () => get<GuardModeData>('/guard-mode'),
   toggleGuardMode: () => post<{ ok: boolean; enabled: boolean }>('/guard-mode/toggle'),
   getVoiceConfirm: () => get<any>('/voice-confirm'),

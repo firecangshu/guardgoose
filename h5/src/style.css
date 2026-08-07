@@ -4,6 +4,9 @@
   --van-success-color: #07c160;
   --van-danger-color: #ee0a24;
   --van-warning-color: #ff9f00;
+  /* 应用壳固定宽度：卡片/图标/图表与壳宽成固定比例，
+     不随浏览器窗口（背景）大小拉伸变形 */
+  --app-max-width: 480px;
 }
 
 * {
@@ -25,8 +28,17 @@ body {
 }
 
 #app {
-  max-width: 750px;
+  max-width: var(--app-max-width);
   margin: 0 auto;
+}
+
+/* 底部 Tab 栏跟随应用壳定宽居中（Vant 默认 fixed 横跨全窗口） */
+.van-tabbar--fixed {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max-width);
 }
 
 /* 覆盖 Vant 卡片默认样式 */

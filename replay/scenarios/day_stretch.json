@@ -1,0 +1,12 @@
+{
+  "name": "伸懒腰·双证据线未成立（不打扰）",
+  "zone": "living",
+  "description": "静息中一次大幅动作冲击（伸懒腰/弯腰捡东西）→ 随后静止，呼吸全程无变化 → 双证据线未成立，仅静默记录，不产生任何告警",
+  "speed": 10,
+  "segments": [
+    { "label": "在家活动", "duration_s": 20, "pattern": "active", "low": 0.35, "high": 0.7, "br_low": 14, "br_high": 18 },
+    { "label": "安静坐着（呼吸平稳）", "duration_s": 30, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 },
+    { "label": "大幅动作冲击（伸懒腰）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 14, "br_high": 17 },
+    { "label": "恢复静坐（呼吸无变化）", "duration_s": 40, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 13, "br_high": 17 }
+  ]
+}

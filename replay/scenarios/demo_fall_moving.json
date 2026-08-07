@@ -1,0 +1,13 @@
+{
+  "name": "有人 · 异常 · 疑似跌倒（移动中）",
+  "zone": "living",
+  "description": "均速移动中 → 突然剧烈运动 + 气息紊乱（双证据线成立）→ 告警，进入与静止中跌倒完全一致的后续确证链；本场景现场持续无应答 → 两轮语音无应答 → 危机升级递进措施；呼吸紊乱持续加剧，监测条展示趋势。",
+  "speed": 30,
+  "segments": [
+    { "label": "匀速走动", "duration_s": 40, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
+    { "label": "突然剧烈波动（跌倒瞬间）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 16, "br_high": 20 },
+    { "label": "倒地静止·气息开始紊乱", "duration_s": 30, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 24, "br_state": "elevated" },
+    { "label": "倒地静止·呼吸急速递升", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 25, "br_high": 27, "br_state": "elevated" },
+    { "label": "倒地静止·气息紊乱加剧", "duration_s": 80, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 28, "br_high": 30, "br_state": "elevated" }
+  ]
+}
