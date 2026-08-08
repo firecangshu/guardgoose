@@ -104,8 +104,8 @@ class SampleProcessor:
         # Zone 超时计时器
         self._zone_timer = 0.0              # 当前Zone停留时间
         self._zone1_check_fired = False     # Zone 1 复查是否已触发
-        self._zone2_voice_timeout = 30      # 第一轮语音超时（急救导向，会被病历覆盖）
-        self._requery_wait_s = 15           # 第二轮确证等待（会被病历覆盖）
+        self._zone2_voice_timeout = 15      # 第一轮语音超时（急救导向，会被病历覆盖）
+        self._requery_wait_s = 10           # 第二轮确证等待：两轮无应答即高危进救护链
         self._voice_round = 0               # 确证轮次：0=无 1=第一轮等待 2=第二轮等待
         self._recovery_active_s = 0.0       # 告警态下运动恢复累计秒数（自解除）
         self._zone3_confirm_timeout = 300   # Zone 3 5分钟无人确认
@@ -132,7 +132,7 @@ class SampleProcessor:
         self._adj = M.build_adjustments(profile)
         if self._adj["zone3_max_stay"] > 0:
             self._zone3_max_stay = self._adj["zone3_max_stay"]
-        self._zone2_voice_timeout = self._adj["voice_timeout"] or 30
+        self._zone2_voice_timeout = self._adj["voice_timeout"] or 15
         self._requery_wait_s = self._adj["requery_wait_s"]
 
     @property
@@ -586,7 +586,7 @@ class SampleProcessor:
                  "breathing_rate": br_rate, "breathing_state": br},
                 br_rate=br_rate, br_state=br, g_zone=ZONE_RED))
 
-        # 确证链第二轮超时 → 两轮无人应答，进入危机状态
+        # 确证链第二轮超时 → 无呼救且两轮无应答，高危进救护链
         elif self.guard_zone == ZONE_RED and self._voice_round == 2 and \
                 self._zone_timer >= self._requery_wait_s:
             waited = self._zone_timer
@@ -594,7 +594,8 @@ class SampleProcessor:
             self._set_zone(ZONE_BLACK)
             events.append(mk(
                 EVT_FALL_BREATHING_BAD, 0.93, waited,
-                {"context": f"两轮询问无人应答（第二轮等待{self._requery_wait_s}s），进入危机状态",
+                {"context": f"无呼救且两轮询问无应答（{self._zone2_voice_timeout}s+"
+                            f"{self._requery_wait_s}s），高危 · 进入救护链",
                  "breathing_rate": br_rate, "breathing_state": br},
                 br_rate=br_rate, br_state=br, g_zone=ZONE_BLACK))
 

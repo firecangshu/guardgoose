@@ -58,6 +58,7 @@ const SCENARIO_COLORS: Record<string, string> = {
   demo_rest: '#2563eb',
   demo_fall_still: '#0d9488',
   demo_fall_moving: '#dc2626',
+  demo_fall_noresponse: '#7f1d1d',
 }
 const scenarioColor = computed(() => SCENARIO_COLORS[store.demoScenario] || '#969799')
 function onNextScenario() {
@@ -248,7 +249,7 @@ const adjustNotes = computed(() => {
   const notes: string[] = []
   if (adj.br_elevated_adjust > 0) notes.push(`呼吸正常带已按档案调整至 ≤${store.breathingBandMax} 次/分`)
   if (adj.skip_voice) notes.push('已按档案跳过现场语音询问')
-  else if (typeof adj.voice_timeout === 'number' && adj.voice_timeout < 90) notes.push(`语音等待 ${adj.voice_timeout} 秒`)
+  else if (typeof adj.voice_timeout === 'number' && adj.voice_timeout > 0 && adj.voice_timeout !== 15) notes.push(`语音等待 ${adj.voice_timeout} 秒`)
   if (adj.br_lost_confirm_s > 0) notes.push(`呼吸消失确认已按档案放宽至 ${adj.br_lost_confirm_s} 秒（病态暂停防误报）`)
   if (adj.active_min_adjust < 0) notes.push('运动判定带已按档案下探（动作幅度偏低）')
   return notes.join(' · ')
@@ -302,7 +303,7 @@ const respSteps = computed<RespStep[]>(() => {
   } else if (vc === 'ok') {
     steps.push({ name: '语音唤醒询问', desc: '老人回应「没事」，告警解除，事件库留痕', tag: '回应正常 · 已解除', cls: 'done' })
   } else if (vc === 'help') {
-    steps.push({ name: '语音唤醒询问', desc: '老人回应「救我」（或检测到呻吟），加强告警等级', tag: '已求助 · 已升级', cls: 'done' })
+    steps.push({ name: '语音唤醒询问', desc: '侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机', tag: '已求助 · 直升危机', cls: 'done' })
   } else if (vc === 'waiting' && round === 1) {
     steps.push({ name: '语音唤醒询问', desc: `设备播放「您还好吗？」，等待回应（${store.voiceTimeoutS} 秒）`, tag: '进行中', cls: 'doing' })
   } else if (round >= 2 || z >= 4) {
@@ -322,26 +323,22 @@ const respSteps = computed<RespStep[]>(() => {
   } else {
     steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '第 1 轮无回应时自动启动，等待时长随档案', tag: '待执行', cls: 'todo' })
   }
-  // 4 紧急联系子女 · 进入危机状态
-  steps.push({ name: '紧急联系子女 · 进入危机状态', desc: 'APP 推送 + 短信送达，确保监护人收到信息',
-    tag: z >= 4 ? '已送达' : '待执行', cls: z >= 4 ? 'done' : 'todo' })
-  // 5 拨打对方电话 / 唤醒
-  steps.push({ name: '拨打对方电话 / 唤醒', desc: '推送未回应时自动拨打',
-    tag: elapsed >= 8 ? '已拨打' : z >= 4 ? '进行中' : '待执行',
-    cls: elapsed >= 8 ? 'done' : z >= 4 ? 'doing' : 'todo' })
-  // 6 监控排查（平时不开，危机态手动开启）
+  // 4 通知子女（第一顺位）
+  steps.push({ name: '通知子女 · 第一顺位', desc: 'APP 推送 + 短信送达 + 自动拨打电话',
+    tag: z >= 4 ? '通知中' : '待执行', cls: z >= 4 ? 'doing' : 'todo' })
+  // 5 顺位联系（第一顺位联系不上 → 第二 → 第三）
+  steps.push({ name: '顺位联系 · 第二/第三顺位', desc: '第一顺位联系不上，逐个联系附近关系人上门排查',
+    tag: elapsed >= 12 ? '已顺位联系' : elapsed >= 6 && z >= 4 ? '进行中' : '待执行',
+    cls: elapsed >= 12 ? 'done' : elapsed >= 6 && z >= 4 ? 'doing' : 'todo' })
+  // 6 拨打120 · 同步家庭地址（顺位全部联系不上的兜底）
+  steps.push({ name: '拨打120 · 同步家庭地址', desc: '顺位全部联系不上，直接拨打急救电话并发送地址',
+    tag: elapsed >= 20 ? '已发送' : elapsed >= 12 && z >= 4 ? '准备中' : '待执行',
+    cls: elapsed >= 20 ? 'done' : elapsed >= 12 && z >= 4 ? 'doing' : 'todo' })
+  // 7 监控排查（平时不开，危机态手动开启）
   steps.push(monitorChecked.value
     ? { name: '监控排查', desc: '已开启摄像头查看现场（平时不开）', tag: '查看中', cls: 'done' }
     : { name: '监控排查', desc: '平时不开 · 危机时可手动开启', tag: z >= 4 ? '可开启' : '待执行',
         cls: z >= 4 ? 'doing' : 'todo', action: z >= 4 ? '开启监控排查' : '' })
-  // 7 联系第二顺位人（附近关系人上门排查）
-  steps.push({ name: '联系第二顺位人', desc: '附近关系人上门排查',
-    tag: elapsed >= 16 ? '已联系' : elapsed >= 8 ? '准备中' : '待执行',
-    cls: elapsed >= 16 ? 'done' : elapsed >= 8 ? 'doing' : 'todo' })
-  // 8 转接专业响应 / 120
-  steps.push({ name: '转接专业响应 / 120', desc: '确认是否直接转接急救（下方拨打120按钮）',
-    tag: elapsed >= 24 ? '待确认转接' : elapsed >= 16 ? '准备中' : '待执行',
-    cls: elapsed >= 24 ? 'doing' : elapsed >= 16 ? 'doing' : 'todo' })
   return steps
 })
 
@@ -422,6 +419,8 @@ async function onFalseAlarm() {
 
 /* ---- 紧急呼叫 ---- */
 function handleAlertCall120() {
+  const addr = store.profile?.address || '未登记地址（档案页可填写）'
+  showDialog({ title: '拨打 120', message: `正在拨打 120…\n家庭地址同步给急救中心：\n${addr}` })
   window.location.href = 'tel:120'
 }
 const EMERGENCY_CALL_TIMEOUT = 8000
@@ -436,7 +435,7 @@ async function handleAlertCallEmergency() {
 }
 async function callEmergencyStep(phones: string[], index: number) {
   if (index >= phones.length) {
-    showDialog({ title: '紧急联系', message: '三个紧急电话均未接通，请直接拨打120或联系邻居、社区上门查看。' })
+    showDialog({ title: '紧急联系', message: `三个紧急电话均未接通，直接拨打120并同步家庭地址：\n${store.profile?.address || '未登记地址'}` })
     return
   }
   const phone = phones[index]

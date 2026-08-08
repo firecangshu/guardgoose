@@ -6,7 +6,7 @@
 3. 系数：COPD 档案 rate=22 不算 elevated；无档案 rate=22 算 elevated
 4. 存在证据：空房间呼吸测不到 → 不告警（有人时呼吸消失才告警，防回归）
 5. 双轮确证：第一轮超时 → requery 不升黑区；第二轮超时 → 危机（黑区）
-6. 第二轮时长：急救导向默认 15s，慢性病档案同为 15s
+6. 第二轮时长：急救导向默认 10s，慢性病档案同为 10s
 7. 告警态运动恢复 ≥10s 且呼吸正常 → EVT_FALL_RECOVERED 自动解除归绿
 8. 确证等待中呼吸 lost → 不等防抖直接越级黑区
 9. Type B 观察窗放弃：歇脚 <15s 确认线又起身走动 → 候选放弃，不锁死疑似跌倒
@@ -169,9 +169,9 @@ def test_two_round_confirmation_chain():
     p = SampleProcessor(zone="living")
     t = _fall_red_round1(p)
 
-    # 第一轮等待 30s 无回应（倒地静止、呼吸仍紊乱，避免走自解除分支）
+    # 第一轮等待 15s 无回应（倒地静止、呼吸仍紊乱，避免走自解除分支）
     events_r1 = []
-    for i in range(31):
+    for i in range(16):
         events_r1.extend(_feed(p, t + i, 0.03, br_rate=24, br_state="elevated"))
     requery = [e for e in events_r1 if e.type == EVT_VOICE_REQUERY]
     assert requery, "第一轮超时必须发出第二轮询问事件"
@@ -179,44 +179,44 @@ def test_two_round_confirmation_chain():
     assert p.guard_zone == ZONE_RED, "requery 后仍应保持红区等待回应"
     assert p._voice_round == 2
 
-    # 第二轮等待 15s 仍无回应 → 两轮无人应答，进入危机状态（黑区）
-    t += 31
+    # 第二轮等待 10s 仍无回应 → 两轮无人应答，进入危机状态（黑区）
+    t += 16
     events_r2 = []
-    for i in range(16):
+    for i in range(11):
         events_r2.extend(_feed(p, t + i, 0.03, br_rate=24, br_state="elevated"))
     crisis = [e for e in events_r2
               if e.type == EVT_FALL_BREATHING_BAD and e.guard_zone == ZONE_BLACK]
     assert crisis, "第二轮超时必须进入危机状态"
     assert p.guard_zone == ZONE_BLACK
     assert p._voice_round == 0
-    assert "两轮询问无人应答" in crisis[0].features.get("context", "")
+    assert "两轮询问无应答" in crisis[0].features.get("context", "")
     assert crisis[0].duration_s > 0, "危机事件应携带第二轮等待时长"
 
 
-# ---- 用例6：第二轮等待时长（急救导向默认 15s，慢性病档案同为 15s）----
+# ---- 用例6：第二轮等待时长（急救导向默认 10s，慢性病档案同为 10s）----
 
 def test_requery_wait_duration_by_profile():
     p_base = SampleProcessor(zone="living")
-    assert p_base._requery_wait_s == 15, "无档案第二轮等待默认 15s（急救导向）"
+    assert p_base._requery_wait_s == 10, "无档案第二轮等待默认 10s（急救导向）"
 
     p_chronic = SampleProcessor(zone="living")
     p_chronic.apply_profile(MedicalProfile(conditions=["hypertension"]))
-    assert p_chronic._requery_wait_s == 15, "慢性病档案第二轮等待应缩短至 15s"
+    assert p_chronic._requery_wait_s == 10, "慢性病档案第二轮等待应缩短至 10s"
 
-    # 功能验证：14s 未超时，15s 准时进危机
+    # 功能验证：9s 未超时，10s 准时进危机
     t = _fall_red_round1(p_chronic)
     events_wait = []
-    for i in range(31):  # 先走完第一轮（第一轮超时 30s，多喂不亏）
+    for i in range(16):  # 先走完第一轮（第一轮超时 15s，多喂不亏）
         events_wait.extend(_feed(p_chronic, t + i, 0.03, br_rate=24, br_state="elevated"))
     assert p_chronic._voice_round == 2
-    t += 31
+    t += 16
     early = []
-    for i in range(13):  # 第二轮计时 1~14s 不得升级
+    for i in range(8):  # 第二轮计时 1~9s 不得升级
         early.extend(_feed(p_chronic, t + i, 0.03, br_rate=24, br_state="elevated"))
-    assert not any(e.guard_zone == ZONE_BLACK for e in early), "15s 内不得提前进危机"
-    late = _feed(p_chronic, t + 13, 0.03, br_rate=24, br_state="elevated")  # 计时到 15s
+    assert not any(e.guard_zone == ZONE_BLACK for e in early), "10s 内不得提前进危机"
+    late = _feed(p_chronic, t + 8, 0.03, br_rate=24, br_state="elevated")  # 计时到 10s
     assert any(e.type == EVT_FALL_BREATHING_BAD and e.guard_zone == ZONE_BLACK
-               for e in late), "慢性病档案第二轮 15s 应准时进危机"
+               for e in late), "慢性病档案第二轮 10s 应准时进危机"
 
 
 # ---- 用例7：告警态运动恢复自解除（确证中起身，气息平稳 → 自动解除）----

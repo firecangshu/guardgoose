@@ -27,7 +27,7 @@ from . import guardian
 from . import medical
 from .db import open_store
 from .protocol import (EVENT_TYPES, Event, EVT_FALL_BREATHING_BAD, EVT_FALL_RECOVERED,
-                        EVT_VOICE_REQUERY, SRC_DEMO_INJECT, SRC_CSI_LIVE, ZONE_RED)
+                        EVT_VOICE_REQUERY, SRC_DEMO_INJECT, SRC_CSI_LIVE, ZONE_RED, ZONE_BLACK)
 from .state_machine import SampleProcessor
 from .voice import VoiceConfirmSession
 
@@ -37,7 +37,7 @@ H5_DIST = Path(__file__).resolve().parent.parent / "h5" / "dist"
 app = FastAPI(title="护院鹅 Edge")
 store = open_store(C.DB_PATH)
 processor = SampleProcessor(zone="living")
-voice_session = VoiceConfirmSession(elder_name="奶奶", timeout_s=90)
+voice_session = VoiceConfirmSession(elder_name="奶奶", timeout_s=15)
 
 
 def _apply_profile_to_processor() -> None:
@@ -259,7 +259,9 @@ DEMO_SCENARIOS = [
     {"scenario": "demo_fall_still", "label": "疑似跌倒 · 确认无碍 · 解除警报（静止中跌倒）",
      "desc": "剧烈形变+呼吸急促两级确证成立→告警→呼唤测试进一步确认→回应「我没事」→解除警报恢复正常"},
     {"scenario": "demo_fall_moving", "label": "疑似跌倒 · 风险增加 · 进入救护链（运动中跌倒）",
-     "desc": "剧烈形变+呼吸紊乱（每轮随机：急促/节律紊乱/减弱骤减）确证成立→呼唤测试侦测到呼救→风险增加立即升级进救护链"},
+     "desc": "剧烈形变+呼吸紊乱（每轮随机：急促/节律紊乱/减弱骤减）确证成立→呼唤测试侦测到呼救→跳过一切等待直升危机进救护链"},
+    {"scenario": "demo_fall_noresponse", "label": "疑似跌倒 · 无回应 · 顺位联系 · 转120",
+     "desc": "剧烈形变+呼吸急促确证成立→告警→两轮呼唤（15s+10s）无回应→无呼救直升高危危机→救护链：通知子女→顺位联系→拨打120同步家庭地址"},
 ]
 
 _mode_state = {"real_enabled": False, "demo_enabled": False, "demo_scenario": ""}
@@ -892,11 +894,20 @@ async def _apply_voice_answer(answer: str) -> str:
         processor._voice_round = 0
         await manager.broadcast({"kind": "alert_cleared", "data": {"reason": "老人回应正常"}})
     elif state == "help":
-        # 老人求助（含检测到呻吟等价入口）→ 加强告警等级直升 RED，确证链终止
-        from .protocol import ZONE_RED
+        # 侦测到呼救/呻吟 → 跳过一切等待，直接越级危机进救护链
         processor._voice_round = 0
-        processor._set_zone(ZONE_RED)
-        await manager.broadcast({"kind": "alert_escalated", "data": {"reason": "老人求助，升级告警"}})
+        processor._fall_state_s = 120.0
+        processor._set_zone(ZONE_BLACK)
+        ev = Event(
+            type=EVT_FALL_BREATHING_BAD, confidence=0.96,
+            features={"context": "侦测到老人呼救 · 跳过一切等待 · 直接越级危机进救护链"},
+            ts=datetime.now().astimezone().isoformat(timespec="seconds"),
+            event_id=f"evt_help_{int(time.time() * 1000)}",
+            source=SRC_DEMO_INJECT if _mode_state["demo_enabled"] else SRC_CSI_LIVE,
+            guard_zone=ZONE_BLACK)
+        await _handle_event(ev)
+        await manager.broadcast({"kind": "alert_escalated",
+                                 "data": {"reason": "侦测到老人呼救，跳过等待直接进救护链"}})
     return state
 
 

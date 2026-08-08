@@ -1,16 +1,18 @@
-"""4 完整剧本回放回归（对着运行中的边缘服务跑全链路）。
+"""5 完整剧本回放回归（对着运行中的边缘服务跑全链路）。
 
 用法：python regression_demo.py [base_url]   （默认 http://127.0.0.1:8000）
 
 断言线：
-- demo_rest        休憩中：全程无告警，终态休憩
-- demo_active      活动中：全程无告警，终态活动
-- demo_fall_still  确认无碍·解除警报：双证据告警→剧本自动回应 ok→解除归绿
-- demo_fall_moving 风险增加·救护链：双证据告警（呼吸紊乱每轮随机：
-                   急促/节律紊乱/减弱骤减）→剧本自动回应 help→红区及以上
+- demo_rest           休憩中：全程无告警，终态休憩
+- demo_active         活动中：全程无告警，终态活动
+- demo_fall_still     确认无碍·解除警报：双证据告警→剧本自动回应 ok→解除归绿
+- demo_fall_moving    风险增加·救护链：双证据告警（呼吸紊乱每轮随机：
+                      急促/节律紊乱/减弱骤减）→剧本自动回应 help→跳过一切等待直升危机
+- demo_fall_noresponse 无回应·顺位联系·转120：双证据告警→两轮呼唤（15s+10s）
+                      无回应→无呼救直升高危危机→救护链
 
 注意：剧本循环播放，回归在首轮播完后关闭演示停表再断言终态；
-呼唤确证为急救导向 30s/15s，剧本内老人 8s 即回应，全部剧本一分半内走完。
+呼唤确证为急救导向 15s/10s，有回应剧本 8s 即回应，全部剧本一分半内走完。
 """
 from __future__ import annotations
 
@@ -32,6 +34,7 @@ SCENARIOS = {
     "demo_active": {"dur": 60, "speed": 1},
     "demo_fall_still": {"dur": 60, "speed": 1},
     "demo_fall_moving": {"dur": 53, "speed": 1},
+    "demo_fall_noresponse": {"dur": 80, "speed": 1},
 }
 
 
@@ -101,13 +104,24 @@ def main() -> None:
     ev, st = run_scenario("demo_fall_moving")
     ts = types(ev)
     check("fall_breathing_bad" in ts, "剧烈形变+呼吸紊乱（本轮随机抽中）→ 双证据线成立告警")
-    check(st.get("guard_zone", 0) >= 3, f"侦测到呼救 → 风险增加终态红区及以上（实际 {st.get('guard_zone')}）")
+    check(st.get("guard_zone", 0) >= 3, f"侦测到呼救 → 跳过一切等待直升危机（实际 {st.get('guard_zone')}）")
     logs = req("GET", "/api/system-logs")
     log_text = json.dumps(logs, ensure_ascii=False)
     check("侦测到呼吸紊乱" in log_text, "system-logs 有本轮呼吸紊乱记录")
     # ack 接口（响铃直到知晓）
     ack = req("POST", "/api/alert-ack")
     check(ack.get("ok") is True, "POST /api/alert-ack 已知晓接口可用")
+
+    # ---- 5 无回应·顺位联系·转120：两轮呼唤无应答 → 直升高危危机 ----
+    print("\n▶ demo_fall_noresponse 疑似跌倒·无回应·顺位联系·转120")
+    ev, st = run_scenario("demo_fall_noresponse")
+    ts = types(ev)
+    check("fall_breathing_bad" in ts, "剧烈形变+呼吸急促 → 双证据线成立告警")
+    check("voice_requery" in ts, "第一轮 15s 无回应 → 第二轮呼唤事件已发出")
+    crisis = [e for e in ev if e.get("type") == "fall_breathing_bad"
+              and "两轮询问无应答" in json.dumps(e.get("features", {}), ensure_ascii=False)]
+    check(bool(crisis), "无呼救且两轮无应答 → 直升高危危机事件已落库")
+    check(st.get("guard_zone", 0) >= 4, f"终态高危危机·救护链进行中（实际 {st.get('guard_zone')}）")
 
     print(f"\n{'='*40}\n回归结果：{'全部通过 ✔' if FAIL == 0 else f'{FAIL} 项失败 ✘'}")
     sys.exit(1 if FAIL else 0)

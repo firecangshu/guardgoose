@@ -134,7 +134,7 @@ export const useGuardianStore = defineStore('guardian', () => {
   /** 确证轮次：0=无 1=第一轮等待 2=第二轮等待（报警响铃中） */
   const voiceRound = ref(0)
   /** 当前轮次等待时长（秒，随档案：第一轮 voice_timeout / 第二轮 requery_wait_s） */
-  const voiceTimeoutS = ref(90)
+  const voiceTimeoutS = ref(15)
   /** 第二轮报警响铃状态：ack_required 告警到达→响铃，已知晓→停 */
   const ackRequired = ref(false)
   const alertAcked = ref(false)

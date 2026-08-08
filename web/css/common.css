@@ -143,7 +143,7 @@ a { color: var(--accent); text-decoration: none; }
 .voice-timer-bar::after {
   content: ''; display: block; height: 100%; width: 100%;
   background: var(--warn); transform-origin: left;
-  animation: countdown 30s linear;
+  animation: countdown 15s linear;
 }
 @keyframes countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 .voice-timer span:last-child { font-size: var(--fs-sm); color: var(--warn); min-width: 32px; }

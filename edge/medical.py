@@ -61,10 +61,10 @@ MULTI_MED_THRESHOLD = 4  # 多重用药阈值（≥4种）——仅档案备查�
 CONDITION_COEFFICIENTS: dict[str, dict[str, Any]] = {
     HX_HEART: {"br_elevated_adjust": 5, "br_lost_confirm_s": 30,
                "rhythm_abnormal_weight": False},
-    HX_STROKE: {"active_min_adjust": -0.05, "voice_timeout": 60,
+    HX_STROKE: {"active_min_adjust": -0.05,
                 "rhythm_abnormal_weight": True},
-    HX_EPILEPSY: {"br_lost_confirm_s": 30, "voice_timeout": 60},
-    HX_DIABETES: {"voice_timeout": 60},
+    HX_EPILEPSY: {"br_lost_confirm_s": 30},
+    HX_DIABETES: {},
     HX_PARKINSON: {"active_min_adjust": -0.05, "type_b_still_s": 25},
     HX_ANEMIA: {"br_elevated_adjust": 2},
     # 高血压：不加检测系数（zone3_max_stay 升级逻辑已单独实现）
@@ -77,8 +77,8 @@ DEFAULT_ADJUSTMENTS: dict[str, Any] = {
     "active_min_adjust": 0.0,       # 活动判定带下探量（负值=更灵敏认小碎步）
     "type_b_still_s": 0,            # Type B 确认时长覆盖（0=用默认 FALL_B_STILL_S）
     "skip_voice": False,            # 跳过现场语音询问（心梗）
-    "voice_timeout": 30,            # 语音询问等待秒数（急救导向，20260808 定稿，原 90s 推翻）
-    "requery_wait_s": 15,           # 第二轮确证等待秒数（原默认20s，急救导向缩短）
+    "voice_timeout": 15,            # 语音询问等待秒数（急救导向，20260808 定稿：90s→30s→15s）
+    "requery_wait_s": 10,           # 第二轮确证等待秒数：两轮无应答即高危进救护链
     "zone3_max_stay": 0,            # 告警后多少秒未处理自动升级（0=不限）
     "rhythm_abnormal_weight": False,  # 呼吸节律异常视为恶化信号（脑梗）
     "conditions_applied": [],       # 实际生效的病史清单（供守护页展示修正痕迹）
@@ -120,9 +120,6 @@ def build_adjustments(profile: "MedicalProfile") -> dict[str, Any]:
     if HX_HEART in profile.conditions:
         adj["skip_voice"] = True
         adj["voice_timeout"] = 0
-    # 第二轮确证等待：有慢性病档案缩短至 15s（恶化风险高，少等快升）
-    if profile.conditions:
-        adj["requery_wait_s"] = 15
     adj["conditions_applied"] = codes
     return adj
 
@@ -249,37 +246,37 @@ def get_disease_strategy(code: str) -> dict[str, Any]:
                      "fall_risk_note": "脑源性晕厥，可能意识清醒但无法回应",
                      "breathing_impact": "脑干梗死可导致呼吸节律异常",
                      "advice": ["立即电话联系老人", "可能清醒但肢体无法动弹", "不建议等待语音回应"],
-                     "voice_timeout_override": 45, "skip_voice": False, "zone3_max_stay": 0},
+                     "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 0},
         HX_EPILEPSY: {"source": "preset", "name": "癫痫", "category": "神经",
                        "fall_risk_note": "癫痫发作期可跌倒，发作后意识模糊",
                        "breathing_impact": "发作期呼吸可能暂停>30秒",
                        "advice": ["保护老人头部", "保持侧卧位防止误吸", "如呼吸>30s未恢复拨打120"],
-                       "voice_timeout_override": 60, "skip_voice": False, "zone3_max_stay": 0},
+                       "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 0},
         HX_DIABETES: {"source": "preset", "name": "糖尿病", "category": "代谢",
                        "fall_risk_note": "低血糖可导致跌倒和意识丧失",
                        "breathing_impact": "低血糖昏迷时呼吸可能浅慢",
                        "advice": ["立即电话联系", "可能为低血糖", "准备含糖食物", "如无法唤醒拨打120"],
-                       "voice_timeout_override": 60, "skip_voice": False, "zone3_max_stay": 0},
+                       "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 0},
         HX_PARKINSON: {"source": "preset", "name": "帕金森", "category": "神经",
                         "fall_risk_note": "体位性低血压和步态异常导致跌倒",
                         "breathing_impact": "通常不影响呼吸频率",
                         "advice": ["确认意识是否清醒", "缓慢扶起防止再次跌倒"],
-                        "voice_timeout_override": 90, "skip_voice": False, "zone3_max_stay": 0},
+                        "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 0},
         HX_HYPERTENSION: {"source": "preset", "name": "高血压", "category": "心血管",
                            "fall_risk_note": "高血压急症可导致跌倒",
                            "breathing_impact": "通常不影响呼吸",
                            "advice": ["确认老人意识和血压", "如意识模糊立即前往"],
-                           "voice_timeout_override": 90, "skip_voice": False, "zone3_max_stay": 600},
+                           "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 600},
         HX_ALZHEIMER: {"source": "preset", "name": "阿尔茨海默病", "category": "神经",
                         "fall_risk_note": "认知障碍导致判断力下降，跌倒风险增加",
                         "breathing_impact": "通常不影响呼吸",
                         "advice": ["确认老人意识和位置", "可能无法准确描述情况"],
-                        "voice_timeout_override": 90, "skip_voice": False, "zone3_max_stay": 0},
+                        "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 0},
         HX_ANEMIA: {"source": "preset", "name": "严重贫血", "category": "血液",
                      "fall_risk_note": "贫血导致脑供氧不足，可引起晕厥跌倒",
                      "breathing_impact": "代偿性呼吸加快",
                      "advice": ["确认老人意识", "可能为脑供氧不足", "如意识模糊拨打120"],
-                     "voice_timeout_override": 60, "skip_voice": False, "zone3_max_stay": 0},
+                     "voice_timeout_override": 0, "skip_voice": False, "zone3_max_stay": 0},
     }
     return preset_map.get(code, {"source": "unknown", "name": code, "category": "",
                                   "description": "", "fall_risk_note": "", "breathing_impact": "",

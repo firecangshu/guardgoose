@@ -22,7 +22,7 @@ VOICE_TIMEOUT = "timeout"        # 超时无回应
 class VoiceConfirmSession:
     """一次语音确证会话。"""
 
-    def __init__(self, elder_name: str = "奶奶", timeout_s: int = 90) -> None:
+    def __init__(self, elder_name: str = "奶奶", timeout_s: int = 15) -> None:
         self.elder_name = elder_name
         self.timeout_s = timeout_s
         self.state = VOICE_IDLE
