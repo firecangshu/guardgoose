@@ -285,6 +285,15 @@ const voiceWaitLeft = computed(() => {
   return Math.max(0, store.voiceTimeoutS - used)
 })
 
+/* 救护链：单顺位拨打等待秒数，到时未接通自动降级下一顺位（与紧急联系 EMERGENCY_CALL_TIMEOUT 同口径） */
+const RESCUE_CONTACT_S = 8
+/* 案件完结：某顺位接通 → 冻结救护链倒计时（记录接通时的秒数） */
+const rescueClosedAt = ref(0)
+const rescueDismissed = ref(false)   // 已知晓后收起完结栏
+watch(() => store.guardZone, (z) => {
+  if (z < 4) { rescueClosedAt.value = 0; rescueDismissed.value = false }
+})
+
 /* 监控排查：平时不开，危机态下手动开启 */
 const monitorChecked = ref(false)
 watch(() => store.guardZone, (z) => { if (z <= 0) monitorChecked.value = false })
@@ -329,17 +338,43 @@ const respSteps = computed<RespStep[]>(() => {
   } else {
     steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '第 1 轮无回应时自动启动，等待时长随档案', tag: '待执行', cls: 'todo' })
   }
-  // 4 通知子女（第一顺位）
-  steps.push({ name: '通知子女 · 第一顺位', desc: 'APP 推送 + 短信送达 + 自动拨打电话',
-    tag: z >= 4 ? '通知中' : '待执行', cls: z >= 4 ? 'doing' : 'todo' })
-  // 5 顺位联系（第一顺位联系不上 → 第二 → 第三）
-  steps.push({ name: '顺位联系 · 第二/第三顺位', desc: '第一顺位联系不上，逐个联系附近关系人上门排查',
-    tag: elapsed >= 12 ? '已顺位联系' : elapsed >= 6 && z >= 4 ? '进行中' : '待执行',
-    cls: elapsed >= 12 ? 'done' : elapsed >= 6 && z >= 4 ? 'doing' : 'todo' })
-  // 6 拨打120 · 同步家庭地址（顺位全部联系不上的兜底）
-  steps.push({ name: '拨打120 · 同步家庭地址', desc: '顺位全部联系不上，直接拨打急救电话并发送地址',
-    tag: elapsed >= 20 ? '已发送' : elapsed >= 12 && z >= 4 ? '准备中' : '待执行',
-    cls: elapsed >= 20 ? 'done' : elapsed >= 12 && z >= 4 ? 'doing' : 'todo' })
+  /* 救护链倒计时：单顺位等待 RESCUE_CONTACT_S 秒，到时未接通自动降级；
+     联系上任一顺位（结案）则冻结在 rescueClosedAt */
+  const chainS = rescueClosedAt.value > 0 ? Math.min(rescueClosedAt.value, elapsed) : elapsed
+  const closed = rescueClosedAt.value > 0
+  // 4 通知子女（第一顺位）：倒计时到点未接通 → 降级
+  if (z < 4) {
+    steps.push({ name: '通知子女 · 第一顺位', desc: 'APP 推送 + 短信送达 + 自动拨打电话', tag: '待执行', cls: 'todo' })
+  } else if (chainS < RESCUE_CONTACT_S) {
+    steps.push({ name: '通知子女 · 第一顺位',
+      desc: `正在拨打子女电话 · 等待接听 · 倒计时 ${RESCUE_CONTACT_S - chainS} 秒 · 接通即结案`,
+      tag: closed ? '已接通 · 案件完结' : '拨打中', cls: closed ? 'done' : 'doing' })
+  } else {
+    steps.push({ name: '通知子女 · 第一顺位',
+      desc: `${RESCUE_CONTACT_S} 秒未接通 · 降级联系第二顺位`, tag: '未接通', cls: 'done' })
+  }
+  // 5 顺位联系（第二 → 第三顺位，各倒计时 RESCUE_CONTACT_S 秒，未接通逐级降级）
+  if (z < 4 || chainS < RESCUE_CONTACT_S) {
+    steps.push({ name: '顺位联系 · 第二/第三顺位', desc: '上一顺位倒计时结束未接通时自动降级，逐个联系附近关系人上门排查', tag: '待执行', cls: 'todo' })
+  } else if (chainS < RESCUE_CONTACT_S * 2) {
+    steps.push({ name: '顺位联系 · 第二顺位',
+      desc: `第一顺位 ${RESCUE_CONTACT_S} 秒未接通 · 正在联系第二顺位 · 倒计时 ${RESCUE_CONTACT_S * 2 - chainS} 秒`,
+      tag: closed ? '已接通 · 案件完结' : '拨打中', cls: closed ? 'done' : 'doing' })
+  } else if (chainS < RESCUE_CONTACT_S * 3) {
+    steps.push({ name: '顺位联系 · 第三顺位',
+      desc: `第二顺位 ${RESCUE_CONTACT_S} 秒未接通 · 正在联系第三顺位 · 倒计时 ${RESCUE_CONTACT_S * 3 - chainS} 秒`,
+      tag: closed ? '已接通 · 案件完结' : '拨打中', cls: closed ? 'done' : 'doing' })
+  } else {
+    steps.push({ name: '顺位联系 · 第二/第三顺位',
+      desc: `第二/第三顺位各拨打 ${RESCUE_CONTACT_S} 秒均未接通`, tag: '全部未接通', cls: 'done' })
+  }
+  // 6 拨打120 · 同步家庭地址（降级处理：仅顺位全部联系不上才启动）
+  if (z < 4 || chainS < RESCUE_CONTACT_S * 3) {
+    steps.push({ name: '拨打120 · 同步家庭地址', desc: '降级处理 · 仅三个顺位全部未接通时启动', tag: '待执行', cls: 'todo' })
+  } else {
+    steps.push({ name: '拨打120 · 同步家庭地址', desc: '顺位全部未接通 · 直拨 120 · 已同步家庭地址',
+      tag: closed ? '案件完结' : '已拨打 · 降级处理', cls: 'done' })
+  }
   // 7 监控排查（平时不开，危机态手动开启）
   steps.push(monitorChecked.value
     ? { name: '监控排查', desc: '已开启摄像头查看现场（平时不开）', tag: '查看中', cls: 'done' }
@@ -348,20 +383,41 @@ const respSteps = computed<RespStep[]>(() => {
   return steps
 })
 
-/* ---- 案情小结：危机链实际读秒复盘（随救护链进度每秒更新） ---- */
-const crisisStage = computed(() => {
-  if (crisisElapsed.value >= 20) return '已拨打 120 · 家庭地址已同步'
-  if (crisisElapsed.value >= 12) return '顺位联系中（第二/第三顺位）'
-  if (crisisElapsed.value >= 6) return '准备拨打 120 · 同步家庭地址'
-  return '通知子女中 · 第一顺位'
+/* ---- 案情小结：危机链实际读秒复盘（随救护链进度每秒更新）；
+   结案口径 = 联系上任一顺位即案件完结，留 120 快拨 + 已知晓 ---- */
+const rescueCloseLabel = computed(() => {
+  const s = rescueClosedAt.value
+  if (s <= 0) return ''
+  if (s < RESCUE_CONTACT_S) return '第一顺位（子女）'
+  if (s < RESCUE_CONTACT_S * 2) return '第二顺位'
+  if (s < RESCUE_CONTACT_S * 3) return '第三顺位'
+  return '120 急救中心'
 })
+/** 顺位人接通（与语音面板回应按钮同位的模拟入口）→ 冻结倒计时、案件完结，顺手停掉二轮报警响铃 */
+function onRescueReached() {
+  if (rescueClosedAt.value > 0 || store.guardZone < 4) return
+  rescueClosedAt.value = Math.max(1, crisisElapsed.value)
+  if (store.ackRequired && !store.alertAcked) void store.ackAlert()
+}
 const crisisSummary = computed(() => {
   const vc = store.voiceConfirmState
+  let prefix = ''
   if (vc === 'help')
-    return `案情小结：双证据成立 → 第 ${store.voiceRespondedElapsedS} 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机 → 救护链已启动 ${crisisElapsed.value} 秒 · ${crisisStage.value}`
-  if (store.guardZone >= 4)
-    return `案情小结：双证据成立 → ${store.voicePrevElapsedS || store.voiceTimeoutS} 秒无回应 → 再等 ${store.voiceTimeoutS} 秒仍无回应 · 直升高危危机 → 救护链已启动 ${crisisElapsed.value} 秒 · ${crisisStage.value}`
-  return ''
+    prefix = `案情小结：双证据成立 → 第 ${store.voiceRespondedElapsedS} 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机`
+  else if (store.guardZone >= 4)
+    prefix = `案情小结：双证据成立 → ${store.voicePrevElapsedS || store.voiceTimeoutS} 秒无回应 → 再等 ${store.voiceTimeoutS} 秒仍无回应 · 直升高危危机`
+  else return ''
+  if (rescueClosedAt.value > 0)
+    return `${prefix} → ${rescueCloseLabel.value}已接通 · 案件完结（救护链共 ${rescueClosedAt.value} 秒）`
+  const s = crisisElapsed.value
+  const stage = s < RESCUE_CONTACT_S
+    ? `通知子女中 · 倒计时 ${RESCUE_CONTACT_S - s} 秒`
+    : s < RESCUE_CONTACT_S * 2
+      ? `第一顺位未接通 · 联系第二顺位中 · 倒计时 ${RESCUE_CONTACT_S * 2 - s} 秒`
+      : s < RESCUE_CONTACT_S * 3
+        ? `第二顺位未接通 · 联系第三顺位中 · 倒计时 ${RESCUE_CONTACT_S * 3 - s} 秒`
+        : '顺位全部未接通 · 降级处理 · 已直拨 120 · 地址已同步'
+  return `${prefix} → 救护链已启动 ${s} 秒 · ${stage}`
 })
 
 /* ---- 告警链中的呼吸持续监测（巩固信息，趋势文案） ---- */
@@ -415,6 +471,8 @@ watch(() => store.clearedSeq, () => {
 watch(() => [store.demoScenario, store.monitoringLive] as const, () => {
   respActive.value = false
   clearedInfo.value = null
+  rescueClosedAt.value = 0
+  rescueDismissed.value = false
 })
 onUnmounted(() => { if (clearedTimer) clearTimeout(clearedTimer) })
 const showRespCard = computed(() => respActive.value && store.monitoringLive)
@@ -805,6 +863,17 @@ const breathNow = computed(() => {
       </div>
       <!-- 案情小结：危机链实际读秒复盘，随救护链进度实时更新 -->
       <div class="case-summary" v-if="crisisSummary">📋 {{ crisisSummary }}</div>
+      <!-- 案件完结：某顺位接通 → 冻结倒计时，留 120 快拨 + 已知晓 -->
+      <div class="rescue-close" v-if="rescueClosedAt > 0 && !rescueDismissed">
+        <div class="rescue-close-title">✅ 案件完结 · {{ rescueCloseLabel }}已接通 · 救护链终止</div>
+        <div class="rescue-close-note">已预留 120 快拨服务（以备万一） · 点「已知晓」为本案收尾</div>
+        <div class="resp-btns">
+          <button class="btn danger" @click="handleAlertCall120">🚑 120 快拨</button>
+          <button class="btn ghost" @click="rescueDismissed = true">已知晓 · 收尾</button>
+        </div>
+      </div>
+      <!-- 顺位人接通（模拟入口）：联系上任一顺位即案件完结 -->
+      <button v-if="store.guardZone >= 4 && rescueClosedAt === 0" class="btn ack reached" @click="onRescueReached">📞 顺位人已接通 · 本案完结</button>
       <!-- 第二轮报警：响铃直到家人知晓 -->
       <button v-if="store.ackRequired && !store.alertAcked" class="btn ack" @click="onAck">🔔 报警中 · 点我确认已知晓</button>
       <div class="resp-btns">
@@ -1070,6 +1139,14 @@ const breathNow = computed(() => {
   background: #fff; border: 1px dashed #fca5a5;
   font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
 }
+/* 案件完结栏：顺位接通后留 120 快拨 + 已知晓收尾 */
+.rescue-close {
+  margin-top: 12px; padding: 12px; border-radius: 12px;
+  background: #f0fdf4; border: 1px solid #86efac;
+}
+.rescue-close-title { font-size: 13px; font-weight: 800; color: #16a34a; }
+.rescue-close-note { font-size: 12px; color: #6b7280; margin: 6px 0 4px; }
+.btn.ack.reached { background: #16a34a; }
 
 /* ---- 数据表 ---- */
 .chart-card {
