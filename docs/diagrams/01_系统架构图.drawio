@@ -40,7 +40,7 @@
         <mxCell id="medical" value="💊 病历个性化&#10;8种病史策略&#10;高血压/心梗/..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1">
           <mxGeometry x="640" y="260" width="180" height="100" as="geometry" />
         </mxCell>
-        <mxCell id="voice" value="🎙️ 语音确证&#10;Zone 2 会话&#10;90s倒计时" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1">
+        <mxCell id="voice" value="🎙️ 语音确证&#10;Zone 2 会话&#10;30s倒计时" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1">
           <mxGeometry x="860" y="260" width="180" height="100" as="geometry" />
         </mxCell>
         <mxCell id="guard" value="🛡️ 护家模式&#10;防盗监测&#10;入侵告警" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1a1a2e;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#e8ecf4;fontSize=12;fontFamily=Microsoft YaHei;shadow=1;" vertex="1" parent="1">

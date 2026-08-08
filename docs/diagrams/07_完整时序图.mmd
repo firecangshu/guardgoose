@@ -27,7 +27,7 @@ sequenceDiagram
         WS-->>APP: 实时推送
         APP->>APP: 状态卡变橙色<br/>弹出语音确证面板<br/>TTS朗读您还好吗
 
-        Note over APP: 90秒倒计时...
+        Note over APP: 30秒倒计时...
 
         alt 老人回应"我没事"
             APP->>API: POST /voice-confirm/respond<br/>{response: "ok"}
@@ -39,7 +39,7 @@ sequenceDiagram
             API->>SM: escalate_to(Zone 3)
             API->>WS: 广播 alert_escalated
             WS-->>APP: 状态变红色告警
-        else 90秒超时
+        else 30秒超时
             API->>SM: 超时 → Zone 3
             API->>WS: 广播 alert_escalated
             WS-->>APP: 自动升级为紧急告警

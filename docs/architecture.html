@@ -261,7 +261,7 @@ sequenceDiagram
     WS-->>APP: 实时推送
     APP->>APP: 状态卡变橙色<br/>弹出语音确证面板<br/>TTS朗读"您还好吗？"
 
-    Note over APP: 90秒倒计时...
+    Note over APP: 30秒倒计时...
 
     alt 老人回应"我没事"
         APP->>API: POST /voice-confirm/respond<br/>{response: "ok"}
@@ -273,7 +273,7 @@ sequenceDiagram
         API->>SM: escalate_to(Zone 3)
         API->>WS: 广播 alert_escalated
         WS-->>APP: 状态变红色告警
-    else 90秒超时
+    else 30秒超时
         API->>SM: 超时 → Zone 3
         API->>WS: 广播 alert_escalated
         WS-->>APP: 自动升级为紧急告警
@@ -297,7 +297,7 @@ stateDiagram-v2
     Zone1 --> Zone0: 30min复查正常 ↓
     Zone1 --> Zone3: 30min复查恶化 ↑
 
-    Zone2 --> Zone3: 语音超时90s ↑
+    Zone2 --> Zone3: 语音超时30s ↑
     Zone2 --> Zone3: 呼吸恶化 ↑
     Zone2 --> Zone0: 老人回应"我没事" ↓
 
@@ -321,7 +321,7 @@ stateDiagram-v2
         [*] --> 橙区语音确认
         橙区语音确认: 跌倒+呼吸正常
         橙区语音确认 --> TTS朗读: 触发语音
-        TTS朗读 --> 等待回应: 90s倒计时
+        TTS朗读 --> 等待回应: 30s倒计时
     }
 
     state Zone3 {

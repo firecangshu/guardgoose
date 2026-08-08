@@ -11,7 +11,7 @@ flowchart TD
     BREATH_CHECK -->|"呼吸消失<br/><3次/分"| ZONE4["⚫ Zone 4<br/>紧急救援"]
 
     ZONE2 --> TTS["🔊 TTS 朗读<br/>您还好吗？"]
-    TTS --> WAIT{"⏰ 90秒等待<br/>老人回应"}
+    TTS --> WAIT{"⏰ 30秒等待<br/>老人回应"}
     WAIT -->|"我没事"| CLEAR["🟢 Zone 0<br/>解除告警"]
     WAIT -->|"我需要帮助"| ZONE3
     WAIT -->|"超时无回应"| ZONE3

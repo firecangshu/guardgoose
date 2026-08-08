@@ -9,7 +9,7 @@ stateDiagram-v2
     Zone1 --> Zone0: 30min复查正常 ↓
     Zone1 --> Zone3: 30min复查恶化 ↑
 
-    Zone2 --> Zone3: 语音超时90s ↑
+    Zone2 --> Zone3: 语音超时30s ↑
     Zone2 --> Zone3: 呼吸恶化 ↑
     Zone2 --> Zone0: 老人回应我没事 ↓
 
@@ -31,7 +31,7 @@ stateDiagram-v2
         [*] --> 橙区语音确认
         橙区语音确认: 跌倒+呼吸正常
         橙区语音确认 --> TTS朗读: 触发语音
-        TTS朗读 --> 等待回应: 90s倒计时
+        TTS朗读 --> 等待回应: 30s倒计时
     }
     state Zone3 {
         [*] --> 红区立即告警
