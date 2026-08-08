@@ -10,6 +10,7 @@
 7. 告警态运动恢复 ≥10s 且呼吸正常 → EVT_FALL_RECOVERED 自动解除归绿
 8. 确证等待中呼吸 lost → 不等防抖直接越级黑区
 9. Type B 观察窗放弃：歇脚 <15s 确认线又起身走动 → 候选放弃，不锁死疑似跌倒
+10. 呼吸建立有人：全程静止（睡眠）持续有效呼吸 ≥3s → 建立有人；空房间测不到呼吸不得建立
 
 运行：python -m pytest test_state_machine.py -v（或直接 python test_state_machine.py）
 """
@@ -26,6 +27,7 @@ from edge.protocol import (
     EVT_FALL_BREATHING_BAD,
     EVT_FALL_BREATHING_OK,
     EVT_FALL_RECOVERED,
+    EVT_PRESENCE_ON,
     EVT_SUSPECTED_FALL,
     EVT_VOICE_REQUERY,
     ZONE_BLACK,
@@ -276,6 +278,28 @@ def test_type_b_watch_abandons_partial_still():
     assert p._fall_watch is None
 
 
+# ---- 用例10：呼吸建立有人（静止/睡眠老人凭持续呼吸建有人；空房间不得建立）----
+
+def test_breathing_establishes_presence_when_still():
+    p = SampleProcessor(zone="living")
+    events = []
+    for i in range(2):                             # 静止+有效呼吸 2s：未满 3s 不得建有人
+        events.extend(_feed(p, i, 0.03, br_rate=14, br_state=BR_NORMAL))
+    assert not p.present, "未满 3s 不得凭呼吸建立有人"
+
+    events.extend(_feed(p, 2, 0.03, br_rate=14, br_state=BR_NORMAL))
+    assert p.present, "持续有效呼吸 ≥3s 必须建立有人（静止/睡眠场景）"
+    on = [e for e in events if e.type == EVT_PRESENCE_ON]
+    assert on and on[-1].features.get("via") == "breathing", \
+        "呼吸建立的有人事件应注明建立途径"
+
+    # 反例：空房间低强度 + 呼吸测不到 → 永远不得建立有人
+    p_empty = SampleProcessor(zone="living")
+    for i in range(6):
+        _feed(p_empty, i, 0.005, br_rate=0, br_state="lost")
+    assert not p_empty.present, "空房间呼吸测不到不得建立有人"
+
+
 if __name__ == "__main__":
     failures = 0
     for fn in [test_stretch_no_alarm_when_breathing_unchanged,
@@ -287,7 +311,8 @@ if __name__ == "__main__":
                test_requery_wait_duration_by_profile,
                test_motion_recovery_auto_clear,
                test_breathing_lost_during_confirmation_escalates_immediately,
-               test_type_b_watch_abandons_partial_still]:
+               test_type_b_watch_abandons_partial_still,
+               test_breathing_establishes_presence_when_still]:
         try:
             fn()
             print(f"PASS  {fn.__name__}")

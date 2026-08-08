@@ -78,6 +78,7 @@ class SampleProcessor:
 
         # 活动检测累积器
         self._active_accum = 0.0
+        self._breath_presence_s = 0.0   # 呼吸建立有人：持续有效呼吸累计秒数
         self._still_accum = 0.0
         self._absent_accum = 0.0
         self._last_sim_t: float | None = None
@@ -267,6 +268,22 @@ class SampleProcessor:
         # 仅当呼吸状态由检测器显式给出时才视为证据（rate 默认值不算）
         breathing_confirms_presence = bool(breathing_state) \
             and breathing_state != BR_LOST and breathing_rate > 0
+        # 呼吸建立有人（20260808）：全程静止（睡眠老人）也能凭持续有效呼吸
+        # ≥ PRESENCE_ON_SECONDS 建立有人——空房间本来就测不到呼吸频率
+        # （B1 实验：静坐时呼吸持续可测），测得到呼吸=必有人；
+        # 呼吸消失防误报闸门在 lost 分支（存在证据窗口），不受此处影响
+        if breathing_confirms_presence:
+            self._breath_presence_s += dt
+        else:
+            self._breath_presence_s = 0.0
+        if not self.present and self._breath_presence_s >= C.PRESENCE_ON_SECONDS:
+            self.present = True
+            self._reset_to_green()
+            events.append(mk(EVT_PRESENCE_ON, 0.9, self._breath_presence_s,
+                             {"via": "breathing",
+                              "note": "持续呼吸信号建立有人（静止/睡眠场景）",
+                              "breathing_rate": breathing_rate},
+                             br_rate=breathing_rate, br_state=br))
         if is_absent:
             self._absent_accum += dt
             self._active_accum = 0.0
