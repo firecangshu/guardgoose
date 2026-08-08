@@ -17,6 +17,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import config as C
@@ -29,6 +30,7 @@ from .state_machine import SampleProcessor
 from .voice import VoiceConfirmSession
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+H5_DIST = Path(__file__).resolve().parent.parent / "h5" / "dist"
 
 app = FastAPI(title="护院鹅 Edge")
 store = open_store(C.DB_PATH)
@@ -555,6 +557,22 @@ async def api_save_profile(p: ProfileIn):
     }}
 
 
+@app.post("/api/profile/clear")
+async def api_clear_profile():
+    """注销档案：档案内容全部清零（病历归零 + 自定义疾病注册表清空），
+    事件库不动（清事件请用系统重置）。"""
+    store._conn.execute("DELETE FROM medical_profile;")
+    store._conn.commit()
+    medical.clear_custom_diseases(conn=store._conn)
+    # 清零后立即按空档案重注入修正系数，恢复默认守护参数
+    _apply_profile_to_processor()
+    profile = medical.load_profile(store._conn)
+    await manager.broadcast({"kind": "profile_updated", "data": profile.to_dict()})
+    await manager.broadcast({"kind": "profile_adjustments", "data": processor.adjustments})
+    sys_log("warn", "档案已注销 · 病历与自定义疾病注册表全部清零")
+    return {"ok": True}
+
+
 # ---- 开放性病史（AI 医学词条，子女确认后走 POST /api/diseases 入档）----
 class DiseaseLookupIn(BaseModel):
     disease_name: str
@@ -745,6 +763,17 @@ async def ws_endpoint(ws: WebSocket):
         sys_log("info", f"子女端已断开 · 当前在线 {len(manager.active)} 端")
 
 
-@app.get("/")
-async def index():
-    return FileResponse(WEB_DIR / "index.html")
+@app.get("/api/health")
+async def api_health():
+    """健康检查：供启动器探测后端是否已在运行。"""
+    return {"ok": True, "app": "护院鹅 Edge"}
+
+
+# 子女端静态托管：h5 构建产物直接由 8000 端口提供（hash 路由，无 SPA 深链问题），
+# 已注册的 /api/* 与 /ws 路由优先级高于静态挂载，互不干扰
+if H5_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=H5_DIST, html=True), name="h5")
+else:
+    @app.get("/")
+    async def index():
+        return FileResponse(WEB_DIR / "index.html")

@@ -107,3 +107,6 @@ _st.json
 test_data_realtime.csv
 test_results/
 .qoder/
+
+# ============ 运行日志（启动器托管后端产物，20260808）============
+backend.log

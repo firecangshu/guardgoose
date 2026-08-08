@@ -206,6 +206,14 @@ def list_custom_diseases() -> list[dict[str, Any]]:
     return [d.to_dict() for d in _custom_diseases.values()]
 
 
+def clear_custom_diseases(conn: sqlite3.Connection | None = None) -> None:
+    """清空自定义疾病注册表（注销/全部清零用）。"""
+    _custom_diseases.clear()
+    if conn is not None:
+        conn.execute("DELETE FROM custom_diseases;")
+        conn.commit()
+
+
 def get_disease_strategy(code: str) -> dict[str, Any]:
     """获取疾病的告警策略（含预设疾病和自定义疾病）。
 

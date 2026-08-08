@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { showToast, showDialog, showSuccessToast, showFailToast } from 'vant'
 import { useGuardianStore, DISEASE_MAP, MEDICATION_MAP, RELATIONSHIP_MAP, HEALTH_STATUS_MAP } from '../stores/guardian'
 import { api, type ProfileData, type DiseaseLookupResult, type DiseaseInfo } from '../services/api'
 
 const store = useGuardianStore()
+const router = useRouter()
 
 /** 折叠区展开状态：默认全部收起——档案都是已填写内容，直接展示摘要，点开才修改 */
 const activeSections = ref<string[]>([])
@@ -19,22 +21,27 @@ const basicSummary = computed(() => {
 const healthSummary = computed(() =>
   '身体状态 · ' + (HEALTH_STATUS_MAP[form.value.health_status]?.label || '未选择'))
 
-const form = ref<ProfileData>({
-  name: '妈妈',
-  age: 75,
-  weight_kg: 0,
-  relationship: '',
-  health_status: '',
-  diseases: [],
-  medications: [],
-  fall_count: 0,
-  syncope_count: 0,
-  family_sudden_cardiac_death: false,
-  wake_time: '06:30',
-  sleep_time: '21:30',
-  address: '',
-  emergency_phones: ['', '', ''],
-})
+/** 表单初始态：首次进页与注销清零后都回到这份默认值 */
+function defaultForm(): ProfileData {
+  return {
+    name: '妈妈',
+    age: 75,
+    weight_kg: 0,
+    relationship: '',
+    health_status: '',
+    diseases: [],
+    medications: [],
+    fall_count: 0,
+    syncope_count: 0,
+    family_sudden_cardiac_death: false,
+    wake_time: '06:30',
+    sleep_time: '21:30',
+    address: '',
+    emergency_phones: ['', '', ''],
+  }
+}
+
+const form = ref<ProfileData>(defaultForm())
 
 const diseaseOptions = Object.entries(DISEASE_MAP).map(([value, label]) => ({ value, label }))
 const medicationOptions = Object.entries(MEDICATION_MAP).map(([value, label]) => ({ value, label }))
@@ -146,16 +153,77 @@ async function handleSave() {
   }
 }
 
+/** 重置系统：清事件库 + 状态机归零（档案保留）。Vant 弹窗取消会 reject，
+ * 必须 try/catch 接住，否则点取消/接口失败时按钮静默无反馈 */
+const resetLoading = ref(false)
+const logoutLoading = ref(false)
+
 async function handleReset() {
-  const ok = await showDialog({
-    title: '确认重置',
-    message: '将清空所有事件和告警记录，确认吗？',
-    showCancelButton: true,
-  })
-  if (ok) {
-    await api.reset()
-    showToast({ type: 'success', message: '已重置' })
+  try {
+    await showDialog({
+      title: '确认重置',
+      message: '将清空所有事件和告警记录，档案不受影响。确认吗？',
+      showCancelButton: true,
+    })
+  } catch {
+    return // 取消
   }
+  resetLoading.value = true
+  try {
+    await api.reset()
+    showSuccessToast('已重置')
+  } catch {
+    showFailToast('重置失败，请重试')
+  } finally {
+    resetLoading.value = false
+  }
+}
+
+/** 注销：档案内容全部清零（基本信息/病史/用药/自定义疾病），事件库不动 */
+async function handleLogout() {
+  try {
+    await showDialog({
+      title: '注销档案',
+      message: '将清空全部档案内容（基本信息、病史、用药、自定义疾病），此操作不可恢复。确认注销吗？',
+      showCancelButton: true,
+      confirmButtonText: '确认注销',
+      confirmButtonColor: '#ee0a24',
+    })
+  } catch {
+    return // 取消
+  }
+  logoutLoading.value = true
+  try {
+    await api.clearProfile()
+    // 表单回到初始态，再拉后端默认档案对齐，同步刷新自定义病史列表
+    form.value = defaultForm()
+    const p = await api.getProfile()
+    form.value = { ...form.value, ...p }
+    form.value.emergency_phones = [...(p.emergency_phones || []), '', '', ''].slice(0, 3)
+    customDiseases.value = []
+    await loadCustomDiseases()
+    await store.loadProfile()  // 同步 store 档案缓存，高风险标签等展示一并归零
+    showSuccessToast('档案已清零')
+  } catch {
+    showFailToast('注销失败，请重试')
+  } finally {
+    logoutLoading.value = false
+  }
+}
+
+/** 退出：程序登出，清登录态回登录页（档案与记录保留，重登后直接进首页） */
+async function handleExit() {
+  try {
+    await showDialog({
+      title: '退出登录',
+      message: '退出后需重新登录，档案与记录不受影响。',
+      showCancelButton: true,
+    })
+  } catch {
+    return // 取消
+  }
+  localStorage.removeItem('wg_logged')
+  router.replace('/login')
 }
 </script>
 
@@ -367,17 +435,29 @@ async function handleReset() {
       </div>
     </van-cell-group>
 
-    <!-- 操作按钮 -->
+    <!-- 操作按钮：保存 / 退出（重登） / 重置（清事件） / 注销（清档案） -->
     <div class="action-area">
       <van-button type="primary" size="large" round block @click="handleSave">
         保存档案
       </van-button>
+      <div class="action-row">
+        <van-button plain size="large" round block @click="handleExit">
+          退出登录
+        </van-button>
+        <van-button
+          type="danger" plain size="large" round block
+          :loading="resetLoading" loading-text="重置中"
+          @click="handleReset"
+        >
+          重置系统数据
+        </van-button>
+      </div>
       <van-button
-        type="danger" plain size="large" round block
-        style="margin-top:12px"
-        @click="handleReset"
+        type="danger" size="large" round block
+        :loading="logoutLoading" loading-text="注销中"
+        @click="handleLogout"
       >
-        重置系统数据
+        注销（档案全部清零）
       </van-button>
     </div>
   </div>
@@ -487,5 +567,20 @@ async function handleReset() {
 
 .action-area {
   padding: 16px;
+}
+
+/* 退出与重置并排：都不伤档案，危险度同级低于注销 */
+.action-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.action-row .van-button {
+  flex: 1;
+}
+
+.action-area > .van-button:last-child {
+  margin-top: 12px;
 }
 </style>
