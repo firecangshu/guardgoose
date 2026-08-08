@@ -285,8 +285,10 @@ const voiceWaitLeft = computed(() => {
   return Math.max(0, store.voiceTimeoutS - used)
 })
 
-/* 救护链：单顺位拨打等待秒数，到时未接通自动降级下一顺位（与紧急联系 EMERGENCY_CALL_TIMEOUT 同口径） */
-const RESCUE_CONTACT_S = 8
+/* 救护链：单顺位拨打等待秒数，到时未接通自动降级下一顺位。
+   依据（20260808 定稿）：运营商无应答判定默认 20~30 秒（约 4~6 声铃，回铃音 1 秒送 4 秒断），
+   lone worker 升级惯例（man-down 30s 升级）；取 30 秒≈ 6 声铃，给家人最大接听窗口 */
+const RESCUE_CONTACT_S = 30
 /* 案件完结：某顺位接通 → 冻结救护链倒计时（记录接通时的秒数） */
 const rescueClosedAt = ref(0)
 const rescueDismissed = ref(false)   // 已知晓后收起完结栏
@@ -504,7 +506,7 @@ function handleAlertCall120() {
   showDialog({ title: '拨打 120', message: `正在拨打 120…\n家庭地址同步给急救中心：\n${addr}` })
   window.location.href = 'tel:120'
 }
-const EMERGENCY_CALL_TIMEOUT = 8000
+const EMERGENCY_CALL_TIMEOUT = 30000
 const EMERGENCY_LABELS = ['第一', '第二', '第三']
 async function handleAlertCallEmergency() {
   const phones = (store.profile?.emergency_phones || []).filter(p => p).slice(0, 3)

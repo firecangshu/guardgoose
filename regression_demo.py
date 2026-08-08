@@ -12,7 +12,8 @@
                       无回应→无呼救直升高危危机→救护链
 
 注意：剧本循环播放，回归在首轮播完后关闭演示停表再断言终态；
-呼唤确证为急救导向 15s/10s，有回应剧本 8s 即回应，全部剧本一分半内走完。
+呼唤确证为急救导向 15s/10s，有回应剧本 8s 即回应；无回应剧本末段 95s
+完整演完救护链降级（单顺位 30s × 3）后再转 120。
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ SCENARIOS = {
     "demo_active": {"dur": 60, "speed": 1},
     "demo_fall_still": {"dur": 60, "speed": 1},
     "demo_fall_moving": {"dur": 53, "speed": 1},
-    "demo_fall_noresponse": {"dur": 80, "speed": 1},
+    "demo_fall_noresponse": {"dur": 150, "speed": 1},
 }
 
 

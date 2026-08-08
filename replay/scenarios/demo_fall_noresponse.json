@@ -9,6 +9,6 @@
     { "label": "倒地不起 · 呼吸急促（应激代偿）· 两级确证成立 · 告警", "duration_s": 12, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
     { "label": "第一轮呼唤 15 秒 · 等待回应 · 无人应答", "duration_s": 18, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
     { "label": "第二轮呼唤 10 秒 · 同步通知家人 · 仍无回应 → 直升危机", "duration_s": 12, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
-    { "label": "救护链启动 · 通知子女 → 顺位联系 → 拨打120 · 同步家庭地址", "duration_s": 25, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" }
+    { "label": "救护链启动 · 通知子女（30秒倒计时）→ 顺位联系 → 拨打120 · 同步家庭地址", "duration_s": 95, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" }
   ]
 }
