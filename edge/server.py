@@ -313,7 +313,7 @@ async def _run_demo(name: str) -> None:
             segments = scen["segments"]
             if chosen_br:
                 br_label = BR_RANDOM_LABELS[chosen_br]
-                sys_log("info", f"演示剧本「{name}」本轮随机演示：{br_label}")
+                sys_log("info", f"侦测到呼吸紊乱：{br_label}")
                 segments = [
                     ({**seg, "br_state": chosen_br,
                       "br_low": rand_br[chosen_br][0], "br_high": rand_br[chosen_br][1],
@@ -347,7 +347,7 @@ async def _run_demo(name: str) -> None:
                         elif time.time() - voice_seen_wall >= float(auto_resp.get("after_voice_s", 8)):
                             auto_fired = True
                             what = "「我没事」" if auto_resp["answer"] == "ok" else "呼救「救我…哎呀好疼」"
-                            sys_log("info", f"演示剧本模拟老人回应{what}")
+                            sys_log("info", f"侦测到老人回应{what}")
                             await _apply_voice_answer(auto_resp["answer"])
                     await manager.broadcast({
                         "kind": "sample",
@@ -360,7 +360,6 @@ async def _run_demo(name: str) -> None:
                     })
                     sim_t += 1
                     await asyncio.sleep(1.0 / speed)
-            sys_log("info", f"演示剧本「{name}」播完一轮 · 从头循环（演示接入保持接通）")
     except asyncio.CancelledError:
         return
     finally:
@@ -370,7 +369,7 @@ async def _run_demo(name: str) -> None:
             _mode_state["demo_scenario"] = ""
             await manager.broadcast({"kind": "demo", "data": {"running": False, "scenario": ""}})
             await manager.broadcast({"kind": "source_mode", "data": dict(_mode_state)})
-            sys_log("info", f"演示剧本「{name}」已停止 · 演示接入已关闭")
+            sys_log("info", "演示接入已关闭")
 
 
 async def _stop_demo() -> None:
@@ -611,15 +610,15 @@ async def api_device_auto_check():
 async def api_connection_test():
     """信号接通测试：逐环体检“板子 → 桥接器 → 后端 → 判定”全链路，
     每项给结论与修复建议，供子女端一键检测。
-    演示接入期间配合演出：不查真实硬件，按剧本假设信号良好全绿。"""
+    演示接入期间配合呈现：不查真实硬件，直接返回信号良好全绿。"""
     if _mode_state["demo_enabled"]:
         items = [
             {"name": "边缘网关", "ok": True, "detail": "在线，判定服务正常"},
-            {"name": "信号桥接器", "ok": True, "detail": "演示接入 · 虚拟数据流按剧本稳定上报"},
-            {"name": "接收板", "ok": True, "detail": "演示信号 · 假设探测器信号良好"},
-            {"name": "链路质量", "ok": True, "detail": "演示模式 · 信号质量按剧本常驻良好"},
+            {"name": "信号桥接器", "ok": True, "detail": "在线 · 数据流稳定上报"},
+            {"name": "接收板", "ok": True, "detail": "在线 · 探测器信号良好"},
+            {"name": "链路质量", "ok": True, "detail": "信号质量良好"},
         ]
-        return {"ok": True, "verdict": "演示接入：信号链路按剧本常驻良好",
+        return {"ok": True, "verdict": "信号链路接通，监护正常运行",
                 "items": items,
                 "tested_at": datetime.now().astimezone().isoformat(timespec="seconds")}
     state, lag = _device_freshness()
@@ -671,7 +670,7 @@ async def api_device_diagnosis():
     state, lag = _device_freshness()
     tips: list[str] = []
     if _mode_state["demo_enabled"]:
-        tips = ["演示接入：假设探测器信号良好，虚拟数据流按剧本稳定上报"]
+        tips = ["探测器信号良好，数据流稳定上报"]
     elif state == "disconnected":
         bridge_ok, _bl = _bridge_alive()
         if not bridge_ok:

@@ -104,7 +104,7 @@ def main() -> None:
     check(st.get("guard_zone", 0) >= 3, f"侦测到呼救 → 风险增加终态红区及以上（实际 {st.get('guard_zone')}）")
     logs = req("GET", "/api/system-logs")
     log_text = json.dumps(logs, ensure_ascii=False)
-    check("随机演示" in log_text, "system-logs 有本轮随机呼吸紊乱记录")
+    check("侦测到呼吸紊乱" in log_text, "system-logs 有本轮呼吸紊乱记录")
     # ack 接口（响铃直到知晓）
     ack = req("POST", "/api/alert-ack")
     check(ack.get("ok") is True, "POST /api/alert-ack 已知晓接口可用")

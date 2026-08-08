@@ -118,7 +118,7 @@ export const useGuardianStore = defineStore('guardian', () => {
   const intensity = ref(0)
   const breathingRate = ref(0)
   const breathingState = ref('normal')
-  /** 语义三态：rest 静坐休憩中 / active 活动中 / fall 疑似跌倒；空串=未探测到人（不断言） */
+  /** 语义三态：rest 静坐休憩中 / active 活动中 / fall 疑似跌倒；空串=未探测到人 */
   const semanticState = ref('')
   /** 呼吸正常带上限（已按档案修正，供守护页画医学色带） */
   const breathingBandMax = ref(20)

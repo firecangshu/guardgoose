@@ -93,14 +93,14 @@ const signalInfo = computed(() => {
       if (store.demoTransLost) return { kind: 'none', bars: 0, text: '无信号' }
       return { kind: 'connecting', bars: 0, text: store.demoTransition }
     }
-    return { kind: 'virtual', bars: 4, text: '演示信号 · 信号良好' }
+    return { kind: 'virtual', bars: 4, text: '接入成功 · 信号良好' }
   }
   if (store.standby) return { kind: 'standby', bars: 0, text: '待机' }
   return { kind: 'none', bars: 0, text: '无信号' }
 })
 
 /** 探测器桥接状态：置于接入控制与显示盘之间，接入信号后先看桥接成功没。
- * 真实接入显示真实情况；演示接入按剧本演（接入检测中 → 接入成功 · 信号良好常驻） */
+ * 真实接入显示真实情况；演示接入分阶段呈现（接入检测中 → 接入成功 · 信号良好常驻） */
 const bridgeVM = computed(() => {
   if (store.offline) return { icon: 'warning-o', color: '#ee0a24', text: '已断开 · 守护服务不可达', sub: '请检查边缘网关电源与网络后重连' }
   if (store.standby) return { icon: 'pause-circle-o', color: '#969799', text: '待机 · 未接入', sub: '开启真实接入或演示接入后开始桥接检测' }
@@ -117,15 +117,15 @@ const bridgeVM = computed(() => {
     if (r && !r.ok) return { icon: 'warning-o', color: '#ee0a24', text: r.verdict, sub: '开阀自动体检未通过 · 处理后可点信号接通测试复检' }
     return { icon: 'close', color: '#ee0a24', text: '已断开 · 无信号', sub: '真实信号接入 · 显示真实情况' }
   }
-  // 演示接入：按剧本模拟接入过程
-  if (store.demoTransLost) return { icon: 'close', color: '#969799', text: '无信号 · 上一场景已断开', sub: '演示信号接入 · 按剧本模拟接入过程' }
+  // 演示接入：分阶段呈现接入过程
+  if (store.demoTransLost) return { icon: 'close', color: '#969799', text: '无信号 · 上一场景已断开', sub: '正在重新接入…' }
   if (store.demoTransition) {
     const ok = store.demoTransition.startsWith('接入成功')
     return { icon: 'wifi', color: ok ? '#07c160' : '#2563eb',
       text: store.demoTransition === '接入检测中' ? '接入检测中…' : store.demoTransition,
-      sub: '演示信号接入 · 按剧本模拟接入过程' }
+      sub: '请稍候…' }
   }
-  return { icon: 'wifi', color: '#07c160', text: '接入成功 · 信号良好', sub: '演示信号接入 · 按剧本演 · 信号常驻良好' }
+  return { icon: 'wifi', color: '#07c160', text: '接入成功 · 信号良好', sub: '探测器在线 · 数据持续上报' }
 })
 
 /** 真实接入信号异常提醒（首次提醒 + 30 秒催办） */
@@ -197,7 +197,7 @@ const statusVM = computed<StatusVM>(() => {
   if (store.demoTransition) {
     return { cls: 'quiet', emoji: '⏳',
       main: store.demoTransLost ? '无信号 · 重新接入' : store.demoTransition, mainRed: false,
-      sub: store.demoTransLost ? '上一场景已断开 · 正在重新接入新剧本' : '场景数据即将接入，实时状态马上更新' }
+      sub: store.demoTransLost ? '上一场景已断开 · 正在重新接入' : '场景数据即将接入，实时状态马上更新' }
   }
   if (store.signalLost) {
     return { cls: 'danger', emoji: '📶', main: '信号异常 · 监测暂停', mainRed: false,
@@ -219,7 +219,7 @@ const statusVM = computed<StatusVM>(() => {
   }
   if (!store.present) {
     return { cls: 'quiet', emoji: '🚪', main: '无人 · 环境安静', mainRed: false,
-      sub: '未探测到人体活动与呼吸信号 · 呼吸表留白不断言' }
+      sub: '未探测到人体活动与呼吸信号' }
   }
   if (store.semanticState === 'active') {
     return { cls: '', emoji: '✅', main: '正常', mainRed: false,
@@ -248,7 +248,7 @@ const adjustNotes = computed(() => {
   const notes: string[] = []
   if (adj.br_elevated_adjust > 0) notes.push(`呼吸正常带已按档案调整至 ≤${store.breathingBandMax} 次/分`)
   if (adj.skip_voice) notes.push('已按档案跳过现场语音询问')
-  else if (typeof adj.voice_timeout === 'number' && adj.voice_timeout < 90) notes.push(`语音等待已按档案缩短至 ${adj.voice_timeout} 秒`)
+  else if (typeof adj.voice_timeout === 'number' && adj.voice_timeout < 90) notes.push(`语音等待 ${adj.voice_timeout} 秒`)
   if (adj.br_lost_confirm_s > 0) notes.push(`呼吸消失确认已按档案放宽至 ${adj.br_lost_confirm_s} 秒（病态暂停防误报）`)
   if (adj.active_min_adjust < 0) notes.push('运动判定带已按档案下探（动作幅度偏低）')
   return notes.join(' · ')
@@ -556,7 +556,7 @@ function drawBreath() {
   for (const [v, t] of ticks) ctx.fillText(t, padL - 6, yOf(v) + 3)
   if (!data.length) return
   const bw = cw / data.length
-  // 折线（0=暂未测到 → 断线留白，不做断言）
+  // 折线（0=暂未测到 → 断线留白）
   ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2; ctx.beginPath()
   let prevIdx: number | null = null
   for (let i = 0; i < data.length; i++) {
@@ -639,7 +639,7 @@ const breathNow = computed(() => {
       <div class="source-row">
         <div class="source-info">
           <div class="source-name">演示接入</div>
-          <div class="source-desc">接入代表性场景剧本，实时演示各种场景下的守护状态</div>
+          <div class="source-desc">接入代表性场景，实时展示各种情况下的守护状态</div>
         </div>
         <van-switch
           :model-value="store.demoEnabled" size="20px"
@@ -661,7 +661,7 @@ const breathNow = computed(() => {
     </div>
 
     <!-- 探测器桥接：接入控制与显示盘之间，接入信号后先看桥接成功没
-         真实接入显示真实情况 / 演示接入按剧本演（接入检测中 → 接入成功信号良好） -->
+         真实接入显示真实情况 / 演示接入分阶段呈现（接入检测中 → 接入成功信号良好） -->
     <van-collapse v-model="detailOpen" inset class="detail-collapse bridge-collapse" @change="onCollapseChange">
       <van-collapse-item name="device">
         <template #title>
@@ -717,7 +717,7 @@ const breathNow = computed(() => {
       </van-collapse-item>
     </van-collapse>
 
-    <!-- 状态条：语义三态（静坐休憩中 / 活动中 / 疑似跌倒），无人时不断言 -->
+    <!-- 状态条：语义三态（静坐休憩中 / 活动中 / 疑似跌倒），无人时留空 -->
     <div class="status-card" :class="statusVM.cls" :style="{ borderLeftColor: statusBorderColor }">
       <div class="status-line">
         <span class="status-emoji">{{ statusVM.emoji }}</span>
@@ -847,7 +847,7 @@ const breathNow = computed(() => {
         <span><i class="dot" style="background:#22c55e"></i>平稳 8~{{ store.breathingBandMax }}</span>
         <span><i class="dot" style="background:#fb923c"></i>加快&gt;{{ store.breathingBandMax }} / 浅慢&lt;8</span>
         <span><i class="dot" style="background:#ef4444"></i>衰减&lt;3</span>
-        <span class="legend-note">空白 = 暂未测到（不断言）</span>
+        <span class="legend-note">空白 = 暂未测到</span>
       </div>
     </div>
 

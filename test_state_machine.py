@@ -148,7 +148,7 @@ def test_empty_room_breathing_lost_no_alarm():
     lost = [e for e in all_events if e.type == EVT_BREATHING_LOST]
     assert not lost, "无存在证据时「呼吸测不到」不得触发告警（防空气呼吸消失误报）"
     assert p.guard_zone == ZONE_GREEN, "空房间应保持绿区"
-    assert p.semantic_state == "", "无人时语义三态应为空串（页面不断言）"
+    assert p.semantic_state == "", "无人时语义三态应为空串（页面留空）"
 
 
 def test_breathing_lost_alarm_when_present():
