@@ -71,9 +71,22 @@ function onNextScenario() {
 /** 大卡信号标签：仿手机信号格隐喻 */
 const signalInfo = computed(() => {
   if (store.realEnabled) {
-    if (store.deviceState === '') return { kind: 'connecting', bars: 0, text: '真实信号接入中' }
+    if (store.deviceState === '') {
+      return store.autoChecking
+        ? { kind: 'connecting', bars: 0, text: '信号链路体检中' }
+        : { kind: 'connecting', bars: 0, text: '真实信号接入中' }
+    }
     if (store.deviceState === 'connected') return { kind: 'real', bars: 4, text: '信号正常' }
     if (store.deviceState === 'weak') return { kind: 'weak', bars: 2, text: '信号弱' }
+    // 体检期间：轮询虽报断开但属过渡态，继续显示体检中
+    if (store.autoChecking) return { kind: 'connecting', bars: 0, text: '信号链路体检中' }
+    // 故障态：体检结果给出具体断在哪一环，不再笼统说“无信号”
+    const r = store.autoCheckResult
+    if (r && !r.ok) {
+      if (r.phase === 'preflight') return { kind: 'connecting', bars: 0, text: '开机自检中' }
+      if (r.failed_at) return { kind: 'none', bars: 0, text: `故障 · 断在${r.failed_at}` }
+      return { kind: 'none', bars: 0, text: '故障 · 链路未接通' }
+    }
     return { kind: 'none', bars: 0, text: '无信号' }
   }
   if (store.demoEnabled) {
@@ -93,9 +106,16 @@ const bridgeVM = computed(() => {
   if (store.offline) return { icon: 'warning-o', color: '#ee0a24', text: '已断开 · 守护服务不可达', sub: '请检查边缘网关电源与网络后重连' }
   if (store.standby) return { icon: 'pause-circle-o', color: '#969799', text: '待机 · 未接入', sub: '开启真实接入或演示接入后开始桥接检测' }
   if (store.realEnabled) {
-    if (store.connecting) return { icon: 'wifi', color: '#2563eb', text: '接入检测中…', sub: '真实信号接入 · 显示真实情况' }
+    if (store.connecting) {
+      return store.autoChecking
+        ? { icon: 'search', color: '#2563eb', text: '信号链路体检中…', sub: '正在逐环检查：桥接器 → 接收板 → 数据流' }
+        : { icon: 'wifi', color: '#2563eb', text: '接入检测中…', sub: '真实信号接入 · 显示真实情况' }
+    }
     if (store.deviceState === 'connected') return { icon: 'wifi', color: '#07c160', text: '接入成功 · 信号良好', sub: '真实信号接入 · 显示真实情况' }
     if (store.deviceState === 'weak') return { icon: 'warning-o', color: '#ff9f00', text: '信号不佳 · 数据延迟', sub: '真实信号接入 · 显示真实情况' }
+    // 故障态：体检结论直接上屏，告诉用户断在哪一环、怎么办
+    const r = store.autoCheckResult
+    if (r && !r.ok) return { icon: 'warning-o', color: '#ee0a24', text: r.verdict, sub: '开阀自动体检未通过 · 处理后可点信号接通测试复检' }
     return { icon: 'close', color: '#ee0a24', text: '已断开 · 无信号', sub: '真实信号接入 · 显示真实情况' }
   }
   // 演示接入：按剧本模拟接入过程

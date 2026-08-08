@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import subprocess
+import sys
 import time
 from collections import deque
 from datetime import datetime
@@ -399,8 +401,8 @@ async def api_set_real(body: SourceModeRealIn):
         msg = "真实接入已开启：演示已自动关闭，探测器信号直接联动底层逻辑"
         sys_log("info", "真实接入已开启 · 演示已自动关闭")
     elif body.enabled:
-        msg = "真实接入已开启，等待探测器信号接入"
-        sys_log("info", "真实接入已开启 · 等待探测器信号")
+        msg = "真实接入已开启，正在自动体检信号链路…"
+        sys_log("info", "真实接入已开启 · 开阀自动体检启动")
     else:
         msg = "真实接入已关闭"
         sys_log("info", "真实接入已关闭")
@@ -497,6 +499,69 @@ async def api_bridge_state():
     alive, lag = _bridge_alive()
     return {"alive": alive, "lag_s": round(lag, 1), **{
         k: _bridge_state.get(k) for k in ("phase", "port", "detail", "fps", "rssi")}}
+
+
+def _spawn_bridge() -> None:
+    """后端同环境拉起信号桥接器（水泵）：与启动器同样的方式，
+    DETACHED 隐藏窗口，日志写 bridge.log。避开 WindowsApps 商店空壳别名。"""
+    root = Path(__file__).resolve().parent.parent
+    exe_dir = Path(sys.executable).resolve().parent
+    py = exe_dir / "python.exe"
+    if not (py.exists() and "WindowsApps" not in str(py)):
+        py = Path(sys.executable) if "WindowsApps" not in sys.executable else None
+    if py is None:
+        sys_log("warn", "自动拉起桥接器失败：未找到可用的 Python 解释器")
+        return
+    log_file = open(root / "bridge.log", "a", encoding="utf-8")
+    subprocess.Popen(
+        [str(py), "-m", "hw.bridge", "--backend", "http://127.0.0.1:8000"],
+        cwd=str(root), stdout=log_file, stderr=log_file,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        | getattr(subprocess, "DETACHED_PROCESS", 0),
+    )
+    sys_log("info", "信号桥接器已自动拉起，等待其上线")
+
+
+@app.get("/api/device/auto-check")
+async def api_device_auto_check():
+    """开阀自动体检：开真实接入后前端调用。
+    先等桥接器心跳（不在则自动拉起），再等真实样本到达（含自检期），
+    然后跑全链路体检。结论里给出具体断在哪一环，供子女端三态显示。"""
+    global _last_sample_wall
+    seen = _last_sample_wall
+    # 第一环：桥接器心跳（最多等 12 秒：含自动拉起 + 串口发现 + 自检首段）
+    spawned = False
+    for _ in range(24):
+        alive, _lag = _bridge_alive()
+        if alive:
+            break
+        if not spawned:   # 判死即拉一次：旧心跳残留的 ts 不影响拉起决策
+            _spawn_bridge()
+            spawned = True
+        await asyncio.sleep(0.5)
+    bridge_ok, _ = _bridge_alive()
+    phase = _bridge_state.get("phase", "")
+    # 第二环：真实样本到达（新样本才算，不吃开启前残留；自检期不推流，给足 20 秒）
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if _last_sample_wall is not None and _last_sample_wall != seen:
+            break
+        await asyncio.sleep(0.5)
+    result = await api_connection_test()
+    failed_at = "" if result["ok"] else next(
+        (i["name"] for i in result["items"] if not i["ok"]), "")
+    if result["ok"]:
+        verdict = "信号已接通，水流稳定，进入正式监护"
+    elif bridge_ok and phase == "preflight":
+        verdict = "开机自检中，通过后自动开始监护，请稍候"
+    elif not bridge_ok:
+        verdict = "断在信号桥接器：中转进程未运行"
+    elif failed_at == "接收板":
+        verdict = "断在接收板：板子没插或 TX 未供电（TX 掉电先充电）"
+    else:
+        verdict = f"断在{failed_at}：请按体检明细处理后重试"
+    sys_log("info", f"开阀自动体检：{'通过' if result['ok'] else '未通过'} · {verdict}")
+    return {**result, "verdict": verdict, "failed_at": failed_at, "phase": phase}
 
 
 @app.get("/api/device/connection-test")

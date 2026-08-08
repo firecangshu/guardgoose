@@ -151,6 +151,12 @@ export interface ConnectionTestData {
   tested_at: string
 }
 
+/** 开阀自动体检：开真实接入后自动跑，额外给出断在哪一环 */
+export interface AutoCheckData extends ConnectionTestData {
+  failed_at: string   // 未通过时第一个不合格环节名，通过时为空
+  phase: string       // 桥接器阶段态（preflight=开机自检中）
+}
+
 /* 数据源模式：真实接入 > 演示场景 > 无数据 */
 export interface DemoScenarioInfo {
   scenario: string
@@ -200,6 +206,7 @@ export const api = {
   getDeviceStatus: () => get<DeviceStatusData>('/device/status'),
   getDeviceDiagnosis: () => get<DeviceDiagnosisData>('/device/diagnosis'),
   connectionTest: () => get<ConnectionTestData>('/device/connection-test'),
+  autoCheck: () => get<AutoCheckData>('/device/auto-check'),
   getSourceMode: () => get<SourceModeData>('/source-mode'),
   setDemoMode: (enabled: boolean, scenario: string) =>
     post<SourceModeResp>('/source-mode/demo', { enabled, scenario }),

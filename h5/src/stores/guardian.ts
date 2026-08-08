@@ -1,7 +1,7 @@
 /** 全局状态：WebSocket 连接、实时数据、设备连接状态、告警管理。 */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { api, type EventItem, type AlertItem, type ProfileData, type DeviceStatusData, type DeviceDiagnosisData, type SourceModeData, type DemoScenarioInfo } from '../services/api'
+import { api, type EventItem, type AlertItem, type ProfileData, type DeviceStatusData, type DeviceDiagnosisData, type AutoCheckData, type SourceModeData, type DemoScenarioInfo } from '../services/api'
 
 /* Zone 显示配置 */
 export const ZONE_MAP: Record<number, { label: string; color: string; bg: string; icon: string }> = {
@@ -152,6 +152,10 @@ export const useGuardianStore = defineStore('guardian', () => {
   const deviceState = ref<string>('')  // connected / weak / disconnected
   const deviceStatus = ref<DeviceStatusData | null>(null)
   const diagnosis = ref<DeviceDiagnosisData | null>(null)
+  /* 开阀自动体检：开真实接入后自动跑全链路体检，结果供三态显示区分
+   * “没开阀（待机）”与“开了阀但断在某环（故障）” */
+  const autoChecking = ref(false)
+  const autoCheckResult = ref<AutoCheckData | null>(null)
   let devicePollTimer: ReturnType<typeof setInterval> | null = null
 
   /* ---- 数据源模式：真实接入 > 演示场景 > 虚拟兜底 ---- */
@@ -209,7 +213,10 @@ export const useGuardianStore = defineStore('guardian', () => {
    * signalLost：真实接入开着且检测出信号弱/无 → 旧数据不可信，实时内容全部降级
    * monitoringLive：此刻确实有数据流在驱动判定（真实连上/演示在播） */
   const standby = computed(() => !offline.value && !realEnabled.value && !demoEnabled.value)
-  const connecting = computed(() => !offline.value && realEnabled.value && deviceState.value === '')
+  /* 体检期间（autoChecking）即使轮询已报 disconnected 也算过渡态，
+   * 避免界面闪过“已断开”再跳回“体检中”；接通后立刻退出过渡态。 */
+  const connecting = computed(() => !offline.value && realEnabled.value
+    && (deviceState.value === '' || (autoChecking.value && deviceState.value !== 'connected')))
   const signalLost = computed(() =>
     !offline.value && realEnabled.value && (deviceState.value === 'weak' || deviceState.value === 'disconnected'),
   )
@@ -379,17 +386,35 @@ export const useGuardianStore = defineStore('guardian', () => {
     } catch { /* 离线时保持默认 */ }
   }
 
-  /** 真实接入开关（优先级最高，后端会自动关演示） */
+  /** 真实接入开关（优先级最高，后端会自动关演示）。
+   * 开阀即自动体检：后台跑全链路体检，结果落 autoCheckResult，
+   * 界面据此区分“待机（没开阀）”与“故障（开了阀但断在某环）”。 */
   async function toggleReal(enabled: boolean) {
     const res = await api.setRealMode(enabled)
     realEnabled.value = res.real_enabled
     demoEnabled.value = res.demo_enabled
     demoScenario.value = res.demo_scenario
     if (enabled) {
-      deviceState.value = ''  // 状态归零：先进入“接入中”，检测结果返回后再落定
-      pollDeviceStatus()  // 开启即检测信号，不等下一轮轮询
+      deviceState.value = ''  // 状态归零：先进入“体检中”，结果返回后再落定
+      autoCheckResult.value = null
+      pollDeviceStatus()  // 先拿一眼设备三态，不等体检跑完
+      runAutoCheck()      // 后台体检：不阻塞开关响应，完成后刷新状态
+    } else {
+      autoCheckResult.value = null
     }
     return res.message
+  }
+
+  /** 后台跑开阀自动体检（最长约半分钟：含等桥接器/自检/样本到达），
+   * 完成后重新拉设备状态，把结论交给守护页三态显示。失败静默，
+   * 设备轮询仍会如实反映信号丢失。 */
+  async function runAutoCheck() {
+    autoChecking.value = true
+    try {
+      autoCheckResult.value = await api.autoCheck()
+      await pollDeviceStatus()
+    } catch { /* 后端不可达：offline 由轮询接管 */ }
+    autoChecking.value = false
   }
 
   /** 演示开关 + 场景切换：每个场景都是完整剧本，切换即重新接入 */
@@ -534,11 +559,12 @@ export const useGuardianStore = defineStore('guardian', () => {
     events, alerts, profile, voiceConfirmState, refreshing,
     voiceRound, voiceTimeoutS, ackRequired, alertAcked, lastClearedReason, clearedSeq,
     offline, lastSampleTime, deviceState, deviceStatus, diagnosis,
+    autoChecking, autoCheckResult,
     realEnabled, demoEnabled, demoScenario, demoScenarios, demoTransition, demoTransLost,
     zoneInfo, breathingInfo, alertCount, latestAlert,
     connectionState, connectionInfo, standby, connecting, signalLost, monitoringLive,
     connectWs, loadEvents, loadStatus, loadProfile, saveProfile,
     confirmAlert, ackAlert, init, refreshAll, pollDeviceStatus, loadDiagnosis,
-    loadSourceMode, toggleReal, toggleDemo,
+    loadSourceMode, toggleReal, toggleDemo, runAutoCheck,
   }
 })
