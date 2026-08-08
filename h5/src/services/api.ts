@@ -137,6 +137,20 @@ export interface DeviceDiagnosisData {
   tips: string[]
 }
 
+/** 信号接通测试：板子 → 桥接器 → 后端 → 判定 全链路逐环体检 */
+export interface ConnectionTestItem {
+  name: string
+  ok: boolean
+  detail: string
+}
+
+export interface ConnectionTestData {
+  ok: boolean
+  verdict: string
+  items: ConnectionTestItem[]
+  tested_at: string
+}
+
 /* 数据源模式：真实接入 > 演示场景 > 无数据 */
 export interface DemoScenarioInfo {
   scenario: string
@@ -185,6 +199,7 @@ export const api = {
   reset: () => post<{ ok: boolean }>('/reset'),
   getDeviceStatus: () => get<DeviceStatusData>('/device/status'),
   getDeviceDiagnosis: () => get<DeviceDiagnosisData>('/device/diagnosis'),
+  connectionTest: () => get<ConnectionTestData>('/device/connection-test'),
   getSourceMode: () => get<SourceModeData>('/source-mode'),
   setDemoMode: (enabled: boolean, scenario: string) =>
     post<SourceModeResp>('/source-mode/demo', { enabled, scenario }),

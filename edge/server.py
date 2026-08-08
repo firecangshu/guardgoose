@@ -79,6 +79,19 @@ manager = ConnectionManager()
 # ---- 程序工作台日志：环形缓冲只存内存，供子女端事件库展示与导出 ----
 _sys_logs: deque[dict] = deque(maxlen=200)
 
+# ---- 桥接器心跳：桥接器每 3 秒上报自身阶段态，超过 8 秒无心跳视为未运行 ----
+_bridge_state: dict = {"phase": "", "port": "", "detail": "", "fps": 0.0,
+                       "rssi": 0, "preflight": False, "ts": 0.0}
+BRIDGE_STALE_S = 8.0
+BRIDGE_PHASE_LABEL = {
+    "waiting_hardware": "等待硬件插入",
+    "preflight": "开机自检中",
+    "preflight_passed": "自检通过",
+    "preflight_failed": "自检未通过",
+    "streaming": "正式监护推流中",
+    "reconnecting": "串口重连中",
+}
+
 
 def sys_log(level: str, text: str) -> None:
     """记一条工作台日志（info/warn/danger）。"""
@@ -453,6 +466,86 @@ async def api_device_status():
     }
 
 
+class BridgeHeartbeatIn(BaseModel):
+    phase: str = ""
+    port: str = ""
+    detail: str = ""
+    fps: float = 0.0
+    rssi: int = 0
+    preflight: bool = False
+
+
+@app.post("/api/bridge/heartbeat")
+async def api_bridge_heartbeat(hb: BridgeHeartbeatIn):
+    """桥接器心跳：记录阶段态，供信号接通测试区分“桥接器没跑”与“板子没插”。"""
+    _bridge_state.update({**hb.model_dump(), "ts": time.time()})
+    return {"ok": True}
+
+
+def _bridge_alive() -> tuple[bool, float]:
+    """桥接器是否在运行：心跳新鲜度判定。"""
+    ts = _bridge_state.get("ts") or 0.0
+    if ts <= 0:
+        return False, -1.0
+    lag = time.time() - ts
+    return lag <= BRIDGE_STALE_S, lag
+
+
+@app.get("/api/bridge/state")
+async def api_bridge_state():
+    """桥接器运行态：供启动器判断是否需要拉起桥接器。"""
+    alive, lag = _bridge_alive()
+    return {"alive": alive, "lag_s": round(lag, 1), **{
+        k: _bridge_state.get(k) for k in ("phase", "port", "detail", "fps", "rssi")}}
+
+
+@app.get("/api/device/connection-test")
+async def api_connection_test():
+    """信号接通测试：逐环体检“板子 → 桥接器 → 后端 → 判定”全链路，
+    每项给结论与修复建议，供子女端一键检测。"""
+    state, lag = _device_freshness()
+    bridge_ok, bridge_lag = _bridge_alive()
+    phase = _bridge_state.get("phase", "")
+    items: list[dict] = []
+
+    items.append({"name": "边缘网关", "ok": True,
+                  "detail": "在线，判定服务正常"})
+
+    if bridge_ok:
+        label = BRIDGE_PHASE_LABEL.get(phase, phase or "运行中")
+        items.append({"name": "信号桥接器", "ok": phase != "preflight_failed",
+                      "detail": f"{label}" + (f" · {_bridge_state['port']}" if _bridge_state.get("port") else "")
+                      + (f" · {_bridge_state.get('detail')}" if _bridge_state.get("detail") else "")})
+    else:
+        items.append({"name": "信号桥接器", "ok": False,
+                      "detail": "未运行——板子的信号需要桥接器中转，请双击桌面“护院鹅子女端”重新拉起"})
+
+    if bridge_ok and phase == "waiting_hardware":
+        items.append({"name": "接收板", "ok": False,
+                      "detail": "未插入/未识别——把 RX 板 USB 插上电脑，桥接器会自动发现"})
+    elif state == "connected":
+        items.append({"name": "接收板", "ok": True,
+                      "detail": f"数据实时到达（延迟 {lag:.1f} 秒）"})
+    elif bridge_ok and phase == "preflight":
+        items.append({"name": "接收板", "ok": True,
+                      "detail": "开机自检中，自检通过前不推流属正常"})
+    else:
+        items.append({"name": "接收板", "ok": False,
+                      "detail": "超过30秒未收到数据——检查两块板供电，TX 板可能需充电"})
+
+    rssi = _bridge_state.get("rssi") or 0
+    if bridge_ok and rssi:
+        items.append({"name": "链路质量", "ok": rssi >= -60,
+                      "detail": f"RSSI {rssi}dBm" + ("（健康）" if rssi >= -48 else
+                                  "（偏弱：给 TX 板充电或拉近两板距离）" if rssi >= -60 else "（过低）")})
+
+    all_ok = all(i["ok"] for i in items)
+    verdict = ("信号链路接通，监护正常运行" if all_ok
+               else "发现问题，请按各项提示处理后重新检测")
+    return {"ok": all_ok, "verdict": verdict, "items": items,
+            "tested_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+
+
 @app.get("/api/device/diagnosis")
 async def api_device_diagnosis():
     """信号不佳时的诊断详情：供子女端排查面板展示。"""
@@ -461,12 +554,24 @@ async def api_device_diagnosis():
     if _mode_state["demo_enabled"]:
         tips = ["演示接入：假设探测器信号良好，虚拟数据流按剧本稳定上报"]
     elif state == "disconnected":
-        tips = [
-            "超过30秒未收到探测器数据，判定为断开",
-            "检查发射端(TX)与接收端(RX)是否通电、指示灯是否正常",
-            "确认探测器与边缘网关接入同一路由器",
-            "路由器断电/重启会导致数据中断，请检查家中网络",
-        ]
+        bridge_ok, _bl = _bridge_alive()
+        if not bridge_ok:
+            tips = [
+                "超过30秒未收到探测器数据，判定为断开",
+                "信号桥接器未在运行：双击桌面“护院鹅子女端”重新拉起（板子的信号靠它中转）",
+            ]
+        elif _bridge_state.get("phase") == "waiting_hardware":
+            tips = [
+                "桥接器在运行，但未发现接收板",
+                "把 RX 接收板的 USB 插上电脑，桥接器会自动识别并开始自检",
+            ]
+        else:
+            tips = [
+                "超过30秒未收到探测器数据，判定为断开",
+                "检查发射端(TX)与接收端(RX)是否通电、指示灯是否正常",
+                "TX 发射板电池掉电是常见原因，先充电再试",
+                "路由器断电/重启会导致数据中断，请检查家中网络",
+            ]
     elif state == "weak":
         tips = [
             f"数据延迟约{int(lag)}秒，正常应每秒上报一次",

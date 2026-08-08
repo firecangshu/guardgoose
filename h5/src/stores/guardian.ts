@@ -32,17 +32,6 @@ export const DISEASE_MAP: Record<string, string> = {
   anemia: '贫血',
 }
 
-export const MEDICATION_MAP: Record<string, string> = {
-  aspirin: '阿司匹林',
-  anticoagulant: '抗凝药',
-  insulin: '胰岛素',
-  sedative: '镇静剂',
-  antihypertensive: '降压药',
-  hypoglycemic: '降糖药',
-  antiepileptic: '抗癫痫药',
-  cardiac: '心脏药物',
-}
-
 /* 监护人与老人的关系 */
 export const RELATIONSHIP_MAP: Record<string, string> = {
   son: '儿子',

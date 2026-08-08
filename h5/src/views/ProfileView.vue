@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showDialog, showSuccessToast, showFailToast } from 'vant'
-import { useGuardianStore, DISEASE_MAP, MEDICATION_MAP, RELATIONSHIP_MAP, HEALTH_STATUS_MAP } from '../stores/guardian'
+import { useGuardianStore, DISEASE_MAP, RELATIONSHIP_MAP, HEALTH_STATUS_MAP } from '../stores/guardian'
 import { api, type ProfileData, type DiseaseLookupResult, type DiseaseInfo } from '../services/api'
 
 const store = useGuardianStore()
@@ -44,7 +44,6 @@ function defaultForm(): ProfileData {
 const form = ref<ProfileData>(defaultForm())
 
 const diseaseOptions = Object.entries(DISEASE_MAP).map(([value, label]) => ({ value, label }))
-const medicationOptions = Object.entries(MEDICATION_MAP).map(([value, label]) => ({ value, label }))
 const relationshipOptions = Object.entries(RELATIONSHIP_MAP).map(([value, label]) => ({ value, label }))
 const healthOptions = Object.entries(HEALTH_STATUS_MAP).map(([value, v]) => ({ value, label: v.label, desc: v.desc }))
 
@@ -53,9 +52,6 @@ function diseaseLabel(code: string): string {
   return DISEASE_MAP[code]
     || customDiseases.value.find(d => d.code === code)?.name
     || code
-}
-function medicationLabel(code: string): string {
-  return MEDICATION_MAP[code] || code
 }
 
 /* ---- 已确认的自定义疾病（个性化医疗档案备份）---- */
@@ -184,7 +180,7 @@ async function handleLogout() {
   try {
     await showDialog({
       title: '注销档案',
-      message: '将清空全部档案内容（基本信息、病史、用药、自定义疾病），此操作不可恢复。确认注销吗？',
+      message: '将清空全部档案内容（基本信息、病史、自定义疾病），此操作不可恢复。确认注销吗？',
       showCancelButton: true,
       confirmButtonText: '确认注销',
       confirmButtonColor: '#ee0a24',
@@ -368,26 +364,6 @@ async function handleExit() {
     </van-popup>
 
     <van-collapse v-model="activeSections" class="profile-collapse">
-      <van-collapse-item name="medication" :title="'用药（可多选）' + (form.medications.length ? ' · 已选 ' + form.medications.length + ' 项' : '')">
-      <van-checkbox-group v-model="form.medications">
-        <van-cell
-          v-for="opt in medicationOptions"
-          :key="opt.value"
-          :title="opt.label"
-          clickable
-          @click="() => {
-            const idx = form.medications.indexOf(opt.value)
-            idx >= 0 ? form.medications.splice(idx, 1) : form.medications.push(opt.value)
-          }"
-        >
-          <template #right-icon>
-            <van-checkbox :name="opt.value" />
-          </template>
-        </van-cell>
-      </van-checkbox-group>
-
-      </van-collapse-item>
-
       <van-collapse-item
         name="history"
         :title="'历史记录' + ((form.fall_count || form.syncope_count || form.family_sudden_cardiac_death) ? ' · 有记录' : '')"
@@ -410,10 +386,10 @@ async function handleExit() {
       </van-collapse-item>
     </van-collapse>
 
-    <!-- 已选病史/用药标签：选中内容常驻展示，不随折叠隐藏，直观看得到 -->
+    <!-- 已选病史标签：选中内容常驻展示，不随折叠隐藏，直观看得到 -->
     <van-cell-group
       inset class="tag-summary"
-      v-if="form.diseases.length || form.medications.length"
+      v-if="form.diseases.length"
     >
       <div v-if="form.diseases.length" class="tag-row">
         <span class="tag-row-label">病史</span>
@@ -422,15 +398,6 @@ async function handleExit() {
           type="primary" class="tag-chip"
         >
           {{ diseaseLabel(c) }}
-        </van-tag>
-      </div>
-      <div v-if="form.medications.length" class="tag-row">
-        <span class="tag-row-label">用药</span>
-        <van-tag
-          v-for="c in form.medications" :key="c"
-          type="warning" class="tag-chip"
-        >
-          {{ medicationLabel(c) }}
         </van-tag>
       </div>
     </van-cell-group>

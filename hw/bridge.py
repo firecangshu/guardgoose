@@ -28,6 +28,15 @@ from collections import deque
 from datetime import datetime
 
 import serial
+
+# Windows 下 stdout 默认 GBK：重定向到日志文件时 ✓/✗ 等符号会编码崩溃，
+# 统一重配 UTF-8（pythonw/DETACHED 场景同样生效）
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None:
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (ValueError, OSError):
+            pass
 import numpy as np
 from serial.tools import list_ports
 
@@ -79,6 +88,8 @@ class CsiBridge:
         self._start_wall = time.time()          # 启动时刻（呼吸窗就绪前不报 lost）
         self.preflight_mode = False             # 自检模式：只观测不推流
         self._pf: dict = {}                     # 自检采集缓冲
+        self._hb_phase = "init"                 # 心跳上报的阶段态（供后端信号接通测试）
+        self._hb_port = ""
         self._csv_fp = None
         if csv_out:
             self._csv_fp = open(csv_out, "w", encoding="utf-8")
@@ -181,6 +192,31 @@ class CsiBridge:
         )
 
     # ---- 推送 ----
+    def heartbeat(self, phase: str, port: str | None = None,
+                  detail: str = "") -> None:
+        """向后端上报桥接器自身状态（阶段/串口/帧率/RSSI）。
+        后端据此区分“桥接器没在跑”与“板子没插”，信号接通测试依赖它。
+        失败静默：心跳不能阻塞主采集链。"""
+        if port is not None:
+            self._hb_port = port
+        self._hb_phase = phase
+        body = {
+            "phase": phase, "port": self._hb_port, "detail": detail,
+            "fps": round(float(self._fps_ema), 1), "rssi": self._last_rssi,
+            "preflight": self.preflight_mode,
+        }
+        req = urllib.request.Request(
+            f"{self.backend}/api/bridge/heartbeat",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=2):
+                pass
+        except Exception:
+            pass
+
     def _post(self, intensity, rate, state, consensus, locked) -> None:
         if intensity is None:
             return
@@ -277,11 +313,19 @@ def _read_serial_loop(bridge: CsiBridge, port: str, baud: int,
             with serial.Serial(port, baud, timeout=1.0) as ser:
                 print(f"[连接] {port} @ {baud} baud，开始采集…", flush=True)
                 bridge._bad = 0
+                last_hb = 0.0
                 while not stop[0]:
                     try:
                         raw = ser.readline()
                     except Exception:
                         break
+                    # 心跳每 3 秒一次：自检期/推流期都报，后端据此知道链路活着
+                    now = time.time()
+                    if now - last_hb >= 3.0:
+                        last_hb = now
+                        bridge.heartbeat(
+                            "preflight" if bridge.preflight_mode else "streaming",
+                            port)
                     if not raw:
                         continue
                     try:
@@ -300,6 +344,7 @@ def _read_serial_loop(bridge: CsiBridge, port: str, baud: int,
         except serial.SerialException as e:
             print(f"[断开] {port}: {e}", flush=True)
         if not stop[0]:
+            bridge.heartbeat("reconnecting", port, "串口断开，3秒后重试")
             print("  3 秒后重试（拔插板子会自动重连）…", flush=True)
             time.sleep(3)
 
@@ -377,6 +422,8 @@ def _run_preflight(bridge: CsiBridge, port: str, baud: int) -> bool:
         all_ok &= ok
         print(f"  {'✓' if ok else '✗'} {name}: {msg}", flush=True)
     if not all_ok:
+        bridge.heartbeat("preflight_failed", port,
+                         "; ".join(name for (ok_, name, _m) in checks if not ok_))
         hints = []
         if not checks[0][0]:
             hints.append("帧率不足：检查 RX 板 USB 供电/换直连口，确认固件在发 CSI_DATA")
@@ -391,6 +438,7 @@ def _run_preflight(bridge: CsiBridge, port: str, baud: int) -> bool:
         print(f"[自检未通过] {PF_RETRY_WAIT_S} 秒后重测（Ctrl+C 退出）…", flush=True)
         return False
     bridge.reset_state()
+    bridge.heartbeat("preflight_passed", port, "自检通过，进入正式监护")
     print("[自检通过] 条件就绪，进入正式监护推流\n", flush=True)
     return True
 
@@ -442,8 +490,12 @@ def main() -> None:
             while not stop[0]:
                 port = args.port or find_csi_port()
                 if port is None:
+                    bridge.heartbeat("waiting_hardware", "",
+                                     "未发现接收板，等待硬件插入")
                     time.sleep(3)
                     continue
+                bridge.heartbeat("preflight" if not args.no_preflight
+                                 else "streaming", port, "已发现接收板")
                 if not args.no_preflight:
                     if not _run_preflight(bridge, port, args.baud):
                         time.sleep(PF_RETRY_WAIT_S)

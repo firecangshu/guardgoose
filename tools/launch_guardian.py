@@ -3,9 +3,12 @@
 双击即用：探测 8000 端口后端是否已在运行——
   - 在运行：直接开窗，不重复起服务；
   - 没运行：自动拉起后端（隐藏黑框窗口），等健康检查通过再开窗。
+后端就绪后再检查信号桥接器（板子的信号靠它中转）：
+  - 没在跑就自动拉起，板子没插它会常驻等待插入。
 子女端页面由后端同端口托管（edge/server.py 静态挂载 h5/dist），
-全程只依赖这一个端口，关掉本窗口不影响后端继续守护。
+全程只依赖这一个端口，关掉本窗口不影响后端与桥接器继续运行。
 """
+import json
 import subprocess
 import sys
 import time
@@ -19,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PORT = 8000
 URL = f"http://127.0.0.1:{PORT}/"
 HEALTH_URL = f"http://127.0.0.1:{PORT}/api/health"
+BRIDGE_STATE_URL = f"http://127.0.0.1:{PORT}/api/bridge/state"
 WAIT_TIMEOUT_S = 30   # 后端冷启动等待上限
 POLL_INTERVAL_S = 0.5
 
@@ -67,6 +71,29 @@ def wait_backend() -> bool:
     return False
 
 
+def is_bridge_alive() -> bool:
+    """问后端桥接器心跳是否新鲜（桥接器每 3 秒上报一次）。"""
+    try:
+        with urllib.request.urlopen(BRIDGE_STATE_URL, timeout=2) as r:
+            return bool(json.loads(r.read()).get("alive"))
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+
+
+def start_bridge() -> None:
+    """后台拉起信号桥接器：板子的 CSI 数据靠它转发给后端。
+    板子没插时它会常驻等待硬件插入，不会退出。"""
+    log_path = ROOT / "bridge.log"
+    log_file = open(log_path, "a", encoding="utf-8")
+    subprocess.Popen(
+        [_backend_python(), "-m", "hw.bridge", "--backend", f"http://127.0.0.1:{PORT}"],
+        cwd=ROOT,
+        stdout=log_file,
+        stderr=log_file,
+        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+    )
+
+
 def main() -> None:
     if not is_backend_alive():
         start_backend()
@@ -75,6 +102,9 @@ def main() -> None:
         import webbrowser
         webbrowser.open(URL)
         return
+    # 信号桥接器：后端就绪后按需拉起（板子没插也不影响开窗）
+    if not is_bridge_alive():
+        start_bridge()
     # 手机 H5 形态：竖屏窗口，宽度按主流手机比例
     webview.create_window(
         title="护院鹅 · 子女端",

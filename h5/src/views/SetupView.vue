@@ -2,14 +2,14 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showSuccessToast, showFailToast } from 'vant'
-import { useGuardianStore, DISEASE_MAP, MEDICATION_MAP, RELATIONSHIP_MAP, HEALTH_STATUS_MAP } from '../stores/guardian'
+import { useGuardianStore, DISEASE_MAP, RELATIONSHIP_MAP, HEALTH_STATUS_MAP } from '../stores/guardian'
 import { api, type DiseaseLookupResult } from '../services/api'
 
 const router = useRouter()
 const store = useGuardianStore()
 
 const step = ref(0)
-const TOTAL_STEPS = 6
+const TOTAL_STEPS = 5
 const saving = ref(false)
 
 const form = reactive({
@@ -21,14 +21,12 @@ const form = reactive({
   wake_time: '06:30',
   sleep_time: '21:30',
   diseases: [] as string[],
-  medications: [] as string[],
   fall_count: 0,
   syncope_count: 0,
   family_sudden_cardiac_death: false,
 })
 
 const diseaseOptions = Object.entries(DISEASE_MAP).map(([value, text]) => ({ text, value }))
-const medicationOptions = Object.entries(MEDICATION_MAP).map(([value, text]) => ({ text, value }))
 const relationshipOptions = Object.entries(RELATIONSHIP_MAP).map(([value, text]) => ({ text, value }))
 const healthOptions = Object.entries(HEALTH_STATUS_MAP).map(([value, v]) => ({ value, label: v.label, desc: v.desc }))
 
@@ -116,7 +114,7 @@ async function finish() {
       relationship: form.relationship,
       health_status: form.health_status,
       diseases: form.diseases,
-      medications: form.medications,
+      medications: [],   // 产品不做用药提醒，档案不再采集用药
       fall_count: form.fall_count,
       syncope_count: form.syncope_count,
       family_sudden_cardiac_death: form.family_sudden_cardiac_death,
@@ -148,7 +146,6 @@ async function finish() {
       <van-step>身体状态</van-step>
       <van-step>作息</van-step>
       <van-step>病史</van-step>
-      <van-step>用药</van-step>
       <van-step>跌倒史</van-step>
     </van-steps>
 
@@ -273,24 +270,8 @@ async function finish() {
       </div>
     </van-popup>
 
-    <!-- Step 4: 用药 -->
+    <!-- Step 4: 跌倒史 -->
     <div v-if="step === 4" class="step-body">
-      <van-cell-group inset>
-        <van-cell title="正在使用的药物（可多选）" />
-        <van-checkbox-group v-model="form.medications" class="checkbox-grid">
-          <van-checkbox
-            v-for="opt in medicationOptions" :key="opt.value"
-            :name="opt.value" shape="square" icon-size="16px"
-          >
-            {{ opt.text }}
-          </van-checkbox>
-        </van-checkbox-group>
-      </van-cell-group>
-      <p class="step-hint">部分药物（如镇静剂、降压药）会增加跌倒风险。</p>
-    </div>
-
-    <!-- Step 5: 跌倒史 -->
-    <div v-if="step === 5" class="step-body">
       <van-cell-group inset>
         <van-cell title="近半年跌倒次数" center>
           <template #right-icon>

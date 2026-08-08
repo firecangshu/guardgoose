@@ -6,6 +6,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { showToast, showDialog, showConfirmDialog, closeDialog } from 'vant'
 import { useGuardianStore } from '../stores/guardian'
 import { api } from '../services/api'
+import type { ConnectionTestData } from '../services/api'
 
 const store = useGuardianStore()
 const detailOpen = ref<string[]>([])
@@ -17,6 +18,20 @@ onMounted(() => {
 
 async function onCollapseChange(names: string[]) {
   if (names.includes('device')) await store.loadDiagnosis()
+}
+
+/* ---- 信号接通测试：板子 → 桥接器 → 后端 全链路逐环体检 ---- */
+const connTesting = ref(false)
+const connTestResult = ref<ConnectionTestData | null>(null)
+async function onConnectionTest() {
+  connTesting.value = true
+  try {
+    connTestResult.value = await api.connectionTest()
+  } catch {
+    showToast('检测失败：守护服务不可达')
+  } finally {
+    connTesting.value = false
+  }
 }
 
 async function onRefresh() {
@@ -660,6 +675,26 @@ const breathNow = computed(() => {
           <p class="diag-tip">· 检查边缘网关（树莓派）电源与网络连接</p>
           <p class="diag-tip">· 确认手机与网关在同一局域网</p>
         </div>
+        <!-- 信号接通测试：显示接通但收不到数据时，一键体检全链路 -->
+        <div class="conn-test">
+          <van-button
+            size="small" type="primary" plain round
+            :loading="connTesting" loading-text="检测中…"
+            @click="onConnectionTest()"
+          >
+            🔌 信号接通测试
+          </van-button>
+          <div v-if="connTestResult" class="conn-test-result">
+            <p class="conn-verdict" :class="connTestResult.ok ? 'ok' : 'bad'">
+              {{ connTestResult.ok ? '✅' : '⚠️' }} {{ connTestResult.verdict }}
+            </p>
+            <p v-for="(it, i) in connTestResult.items" :key="i" class="conn-item">
+              <span class="conn-item-name">{{ it.ok ? '✓' : '✗' }} {{ it.name }}</span>
+              <span class="conn-item-detail">{{ it.detail }}</span>
+            </p>
+            <p class="conn-tested-at">检测于 {{ connTestResult.tested_at.replace('T', ' ') }}</p>
+          </div>
+        </div>
       </van-collapse-item>
     </van-collapse>
 
@@ -1021,6 +1056,17 @@ canvas { display: block; width: 100%; }
 .collapse-title { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .collapse-state { font-size: 11px; margin-left: 4px; }
 .diag-tips { padding: 8px 16px 12px; }
+
+/* ---- 信号接通测试 ---- */
+.conn-test { padding: 8px 16px 14px; }
+.conn-test-result { margin-top: 10px; padding: 10px 12px; background: #f8fafc; border-radius: 10px; }
+.conn-verdict { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.conn-verdict.ok { color: #047857; }
+.conn-verdict.bad { color: #b91c1c; }
+.conn-item { display: flex; gap: 8px; font-size: 12px; padding: 3px 0; }
+.conn-item-name { flex-shrink: 0; color: #1f2937; font-weight: 500; }
+.conn-item-detail { color: #6b7280; }
+.conn-tested-at { margin-top: 8px; font-size: 10px; color: #9ca3af; }
 .diag-tips-title { font-size: 12px; font-weight: 700; color: #1f2937; margin: 0 0 6px; }
 .diag-tip { font-size: 12px; color: #6b7280; margin: 2px 0; }
 
