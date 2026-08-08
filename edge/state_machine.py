@@ -3,7 +3,7 @@
 核心升级（对照陈林团队状态穷举体系）：
 - Zone 0→1：黄区触发条件补全（静息呼吸>20、白天静止>30min、异常时段活动）
 - Zone 1→0/2/3：30分钟复查机制（恢复→降级，恶化→升级）
-- Zone 2→3：语音超时90s自动升级 + 呼吸恶化立即升级
+- Zone 2→3：语音超时30s自动升级（急救导向） + 呼吸恶化立即升级
 - Zone 3→4：5分钟无人确认自动升级 + 呼吸消失立即升级
 - 呼吸模式五级→三级告警细分（elevated=warning, irregular=warning, shallow=emergency, lost=emergency）
 - Zone -1：设备离线检测（简化版）
@@ -104,8 +104,8 @@ class SampleProcessor:
         # Zone 超时计时器
         self._zone_timer = 0.0              # 当前Zone停留时间
         self._zone1_check_fired = False     # Zone 1 复查是否已触发
-        self._zone2_voice_timeout = 90      # 第一轮语音超时（会被病历覆盖）
-        self._requery_wait_s = 20           # 第二轮确证等待（会被病历覆盖，慢性病15）
+        self._zone2_voice_timeout = 30      # 第一轮语音超时（急救导向，会被病历覆盖）
+        self._requery_wait_s = 15           # 第二轮确证等待（会被病历覆盖）
         self._voice_round = 0               # 确证轮次：0=无 1=第一轮等待 2=第二轮等待
         self._recovery_active_s = 0.0       # 告警态下运动恢复累计秒数（自解除）
         self._zone3_confirm_timeout = 300   # Zone 3 5分钟无人确认
@@ -132,7 +132,7 @@ class SampleProcessor:
         self._adj = M.build_adjustments(profile)
         if self._adj["zone3_max_stay"] > 0:
             self._zone3_max_stay = self._adj["zone3_max_stay"]
-        self._zone2_voice_timeout = self._adj["voice_timeout"] or 90
+        self._zone2_voice_timeout = self._adj["voice_timeout"] or 30
         self._requery_wait_s = self._adj["requery_wait_s"]
 
     @property
@@ -485,10 +485,11 @@ class SampleProcessor:
                 confirmed = self._fall_watch["still_after"] >= C.FALL_STILL_SECONDS
             if confirmed:
                 events.extend(self._emit_fall_events(br, br_rate, ts, mk, z))
-        elif self._fall_watch["watch"] > C.FALL_WATCH_WINDOW \
-                and self._fall_watch["still_after"] == 0 \
-                and self._fall_watch.get("dwell_after", 0.0) == 0:
-            # 观察窗超时且从未进入确认态 → 视为普通活动，放弃候选
+        elif self._fall_watch["watch"] > C.FALL_WATCH_WINDOW:
+            # 观察窗超时且当前样本不在静止/absent/dwell 累积态 → 放弃候选。
+            # 含「曾进确认态但未达确认时长又恢复活动」（如歇脚 10s<15s 又起身），
+            # 否则 still_after 残留使观察窗永久滞留、语义锁死疑似跌倒
+            # （20260808 demo_active 回归暴露）。
             self._fall_watch = None
         return events
 

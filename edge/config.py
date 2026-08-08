@@ -61,8 +61,8 @@ BR_RATE_LOST = 3       # <此值=呼吸消失（呼吸停止）
 BR_ABNORMAL_PERSIST_S = 5   # 呼吸异常态需持续 N 秒才参与告警（防单次锁频噪声，20260807 真机实测）
 
 # ---- Zone 超时配置（sim-秒）----
-ZONE2_VOICE_TIMEOUT = 90    # Zone 2 语音确认超时（跌倒+呼吸正常），超时升级Zone 3
-ZONE2_VOICE_TIMEOUT_HIGH_RISK = 60  # 高危人群（心脑血管病史）超时缩短至60s
+ZONE2_VOICE_TIMEOUT = 30    # Zone 2 语音确认超时：急救导向（20260808 定稿，原 90s 工程默认值推翻）
+ZONE2_VOICE_TIMEOUT_HIGH_RISK = 20  # 高危人群（心脑血管病史）再缩短至20s
 ZONE1_STILL_THRESHOLD = 30 * 60  # Zone 1 静止超时（30分钟），升级关注
 
 # ---- Qwen 认知层配置 ----

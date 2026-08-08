@@ -56,7 +56,7 @@ const scenarioIndex = computed(() =>
 const SCENARIO_COLORS: Record<string, string> = {
   demo_active: '#16a34a',
   demo_rest: '#2563eb',
-  demo_fall_still: '#d97706',
+  demo_fall_still: '#0d9488',
   demo_fall_moving: '#dc2626',
 }
 const scenarioColor = computed(() => SCENARIO_COLORS[store.demoScenario] || '#969799')

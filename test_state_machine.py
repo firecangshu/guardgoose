@@ -6,9 +6,10 @@
 3. 系数：COPD 档案 rate=22 不算 elevated；无档案 rate=22 算 elevated
 4. 存在证据：空房间呼吸测不到 → 不告警（有人时呼吸消失才告警，防回归）
 5. 双轮确证：第一轮超时 → requery 不升黑区；第二轮超时 → 危机（黑区）
-6. 第二轮时长：无档案 20s / 慢性病档案 15s
+6. 第二轮时长：急救导向默认 15s，慢性病档案同为 15s
 7. 告警态运动恢复 ≥10s 且呼吸正常 → EVT_FALL_RECOVERED 自动解除归绿
 8. 确证等待中呼吸 lost → 不等防抖直接越级黑区
+9. Type B 观察窗放弃：歇脚 <15s 确认线又起身走动 → 候选放弃，不锁死疑似跌倒
 
 运行：python -m pytest test_state_machine.py -v（或直接 python test_state_machine.py）
 """
@@ -25,6 +26,7 @@ from edge.protocol import (
     EVT_FALL_BREATHING_BAD,
     EVT_FALL_BREATHING_OK,
     EVT_FALL_RECOVERED,
+    EVT_SUSPECTED_FALL,
     EVT_VOICE_REQUERY,
     ZONE_BLACK,
     ZONE_GREEN,
@@ -167,9 +169,9 @@ def test_two_round_confirmation_chain():
     p = SampleProcessor(zone="living")
     t = _fall_red_round1(p)
 
-    # 第一轮等待 90s 无回应（倒地静止、呼吸仍紊乱，避免走自解除分支）
+    # 第一轮等待 30s 无回应（倒地静止、呼吸仍紊乱，避免走自解除分支）
     events_r1 = []
-    for i in range(91):
+    for i in range(31):
         events_r1.extend(_feed(p, t + i, 0.03, br_rate=24, br_state="elevated"))
     requery = [e for e in events_r1 if e.type == EVT_VOICE_REQUERY]
     assert requery, "第一轮超时必须发出第二轮询问事件"
@@ -177,10 +179,10 @@ def test_two_round_confirmation_chain():
     assert p.guard_zone == ZONE_RED, "requery 后仍应保持红区等待回应"
     assert p._voice_round == 2
 
-    # 第二轮等待 20s 仍无回应 → 两轮无人应答，进入危机状态（黑区）
-    t += 91
+    # 第二轮等待 15s 仍无回应 → 两轮无人应答，进入危机状态（黑区）
+    t += 31
     events_r2 = []
-    for i in range(21):
+    for i in range(16):
         events_r2.extend(_feed(p, t + i, 0.03, br_rate=24, br_state="elevated"))
     crisis = [e for e in events_r2
               if e.type == EVT_FALL_BREATHING_BAD and e.guard_zone == ZONE_BLACK]
@@ -191,11 +193,11 @@ def test_two_round_confirmation_chain():
     assert crisis[0].duration_s > 0, "危机事件应携带第二轮等待时长"
 
 
-# ---- 用例6：第二轮等待时长（无档案 20s / 慢性病档案 15s）----
+# ---- 用例6：第二轮等待时长（急救导向默认 15s，慢性病档案同为 15s）----
 
 def test_requery_wait_duration_by_profile():
     p_base = SampleProcessor(zone="living")
-    assert p_base._requery_wait_s == 20, "无档案第二轮等待默认 20s"
+    assert p_base._requery_wait_s == 15, "无档案第二轮等待默认 15s（急救导向）"
 
     p_chronic = SampleProcessor(zone="living")
     p_chronic.apply_profile(MedicalProfile(conditions=["hypertension"]))
@@ -204,10 +206,10 @@ def test_requery_wait_duration_by_profile():
     # 功能验证：14s 未超时，15s 准时进危机
     t = _fall_red_round1(p_chronic)
     events_wait = []
-    for i in range(91):  # 先走完第一轮（档案可能缩短 voice_timeout，多喂不亏）
+    for i in range(31):  # 先走完第一轮（第一轮超时 30s，多喂不亏）
         events_wait.extend(_feed(p_chronic, t + i, 0.03, br_rate=24, br_state="elevated"))
     assert p_chronic._voice_round == 2
-    t += 91
+    t += 31
     early = []
     for i in range(13):  # 第二轮计时 1~14s 不得升级
         early.extend(_feed(p_chronic, t + i, 0.03, br_rate=24, br_state="elevated"))
@@ -249,6 +251,29 @@ def test_breathing_lost_during_confirmation_escalates_immediately():
     assert p.guard_zone == ZONE_BLACK, "呼吸衰竭至消失应直接越级到危机状态"
 
 
+# ---- 用例9：Type B 观察窗放弃（歇脚未达确认线又起身 → 不锁死疑似跌倒）----
+
+def test_type_b_watch_abandons_partial_still():
+    p = SampleProcessor(zone="living")
+    t = _establish_presence(p)                     # 活动 4s：建立有人 + 活动段
+    for i in range(4):                             # 继续走动，活动段 ≥ FALL_B_ACTIVE_S
+        _feed(p, t + i, 0.4, br_rate=15)
+    t += 4
+
+    events = []
+    for i in range(10):                            # 骤然歇脚 10s（< Type B 确认线 15s）
+        events.extend(_feed(p, t + i, 0.03, br_rate=15))
+    t += 10
+    assert p.semantic_state == "fall", "歇脚期间观察窗应呈现疑似跌倒"
+    assert not events, "未达确认时长不得产出任何跌倒类事件"
+
+    for i in range(3):                             # 起身恢复走动
+        _feed(p, t + i, 0.4, br_rate=15)
+    assert p.semantic_state == "active", \
+        "歇脚未达确认线又起身，观察窗必须放弃，不得锁死疑似跌倒"
+    assert p._fall_watch is None
+
+
 if __name__ == "__main__":
     failures = 0
     for fn in [test_stretch_no_alarm_when_breathing_unchanged,
@@ -259,7 +284,8 @@ if __name__ == "__main__":
                test_two_round_confirmation_chain,
                test_requery_wait_duration_by_profile,
                test_motion_recovery_auto_clear,
-               test_breathing_lost_during_confirmation_escalates_immediately]:
+               test_breathing_lost_during_confirmation_escalates_immediately,
+               test_type_b_watch_abandons_partial_still]:
         try:
             fn()
             print(f"PASS  {fn.__name__}")

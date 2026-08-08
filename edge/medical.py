@@ -2,7 +2,7 @@
 
 基于陈林团队《跌倒原因与病历个性化方案》实现：
 - 7种病史的Zone调整规则（心梗/脑梗/癫痫/糖尿病/帕金森/多重用药/无特殊病史）
-- 语音超时时间个性化（心梗跳过语音，脑梗60s，标准90s）
+- 语音超时时间个性化（心梗跳过语音，脑梗60s，标准30s急救导向）
 - 个性化告警模板（告警内容含病史上下文+疑似原因+建议处理）
 - 病历数据模型 + SQLite 持久化
 """
@@ -77,8 +77,8 @@ DEFAULT_ADJUSTMENTS: dict[str, Any] = {
     "active_min_adjust": 0.0,       # 活动判定带下探量（负值=更灵敏认小碎步）
     "type_b_still_s": 0,            # Type B 确认时长覆盖（0=用默认 FALL_B_STILL_S）
     "skip_voice": False,            # 跳过现场语音询问（心梗）
-    "voice_timeout": 90,            # 语音询问等待秒数
-    "requery_wait_s": 20,           # 第二轮确证等待秒数（档案有慢性病→15）
+    "voice_timeout": 30,            # 语音询问等待秒数（急救导向，20260808 定稿，原 90s 推翻）
+    "requery_wait_s": 15,           # 第二轮确证等待秒数（原默认20s，急救导向缩短）
     "zone3_max_stay": 0,            # 告警后多少秒未处理自动升级（0=不限）
     "rhythm_abnormal_weight": False,  # 呼吸节律异常视为恶化信号（脑梗）
     "conditions_applied": [],       # 实际生效的病史清单（供守护页展示修正痕迹）
@@ -321,8 +321,8 @@ class MedicalProfile:
         if HX_HEART in self.conditions:
             return 0   # 跳过语音
         if HX_STROKE in self.conditions or HX_EPILEPSY in self.conditions or HX_DIABETES in self.conditions:
-            return 60  # 高危缩短至60s
-        return 90      # 标准90s
+            return 60  # 高危延长至60s（可能意识清醒但无法回应）
+        return 30      # 标准急救导向30s（20260808 定稿，原 90s 推翻）
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)

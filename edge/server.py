@@ -248,20 +248,29 @@ async def api_reset():
 # ---- 数据源模式：真实接入 > 演示场景 > 待机（无数据流）----
 SCEN_DIR = Path(__file__).resolve().parent.parent / "replay" / "scenarios"
 
-# 演示剧本清单：一个场景一个完整故事（起承转合+结局），循环播放至手动关闭
+# 演示剧本清单：一个场景一个完整故事（起承转合+结局），循环播放至手动关闭；
+# 时长按真实判定链耗时耐配：跌倒确认窗 6~8s，呼唤确证急救导向 30s/15s，
+# 剧本内老人有回应（8s）不必等超时，全部剧本一分半内走完
 DEMO_SCENARIOS = [
-    {"scenario": "demo_rest", "label": "平安的一天 · 休憩",
+    {"scenario": "demo_rest", "label": "休憩中",
      "desc": "完整故事：回家走动→坐下休息→安静看电视，呼吸平稳，系统静默守护不打扰"},
-    {"scenario": "demo_active", "label": "平安的一天 · 活动",
+    {"scenario": "demo_active", "label": "活动中",
      "desc": "完整故事：做家务走动→歇口气→继续收拾，气息均匀，正常活动不误报"},
-    {"scenario": "demo_fall_still", "label": "跌倒 · 虚惊一场",
-     "desc": "完整故事：跌倒→告警→语音确证→自行起身恢复→自动解除告警，闭环收场"},
-    {"scenario": "demo_fall_moving", "label": "跌倒 · 紧急救援",
-     "desc": "完整故事：跌倒→告警→两轮语音无应答→危机升级，通知子女并拨打紧急电话"},
+    {"scenario": "demo_fall_still", "label": "疑似跌倒 · 确认无碍 · 解除警报（静止中跌倒）",
+     "desc": "剧烈形变+呼吸急促两级确证成立→告警→呼唤测试进一步确认→回应「我没事」→解除警报恢复正常"},
+    {"scenario": "demo_fall_moving", "label": "疑似跌倒 · 风险增加 · 进入救护链（运动中跌倒）",
+     "desc": "剧烈形变+呼吸紊乱（每轮随机：急促/节律紊乱/减弱骤减）确证成立→呼唤测试侦测到呼救→风险增加立即升级进救护链"},
 ]
 
 _mode_state = {"real_enabled": False, "demo_enabled": False, "demo_scenario": ""}
 _demo_task: asyncio.Task | None = None
+
+# 随机呼吸紊乱展示名（医学背书：应激代偿/中枢受累/昏迷衰竭三条并列路径）
+BR_RANDOM_LABELS = {
+    "elevated": "呼吸急促（应激代偿）",
+    "irregular": "呼吸节律紊乱（中枢受累）",
+    "shallow": "呼吸减弱骤减（昏迷衰竭）",
+}
 
 
 def _demo_breathing(seg: dict) -> tuple[int, str]:
@@ -285,20 +294,42 @@ async def _run_demo(name: str) -> None:
     """进程内场景播放：剧本展开为逐秒样本直接注入状态机，
     与真实硬件数据走完全相同的判定链路（入库→告警派生→广播）。
     剧本播完自动从头循环：演示接入常驻不掉线，直到手动关闭开关；
-    循环回卷时状态机归零，告警类剧本不会无限叠加升级。"""
+    循环回卷时状态机归零，告警类剧本不会无限叠加升级。
+    剧本可配 auto_respond：呼唤测试开始后按剧本自动模拟老人回应，
+    保证每轮演出结局确定（真实使用中回应来自老人开口或家人点面板）。
+    剧本可配 random_breathing：每轮随机抽一种呼吸紊乱（急促/节律紊乱/
+    减弱骤减，均有医学背书）替换 br_state="random" 段落，随机演示各种紊乱剧本。"""
     global processor, _last_sample_wall
     scen = json.loads((SCEN_DIR / f"{name}.json").read_text(encoding="utf-8"))
     speed = float(scen.get("speed", 10))
     zone = scen.get("zone", "living")
+    auto_resp = scen.get("auto_respond")
+    rand_br = scen.get("random_breathing") or {}
     await manager.broadcast({"kind": "demo", "data": {"running": True, "scenario": name}})
     try:
         while True:
+            # 随机呼吸紊乱：本轮抽一种，替换 random 段落的呼吸态与频率带
+            chosen_br = random.choice(list(rand_br)) if rand_br else None
+            segments = scen["segments"]
+            if chosen_br:
+                br_label = BR_RANDOM_LABELS[chosen_br]
+                sys_log("info", f"演示剧本「{name}」本轮随机演示：{br_label}")
+                segments = [
+                    ({**seg, "br_state": chosen_br,
+                      "br_low": rand_br[chosen_br][0], "br_high": rand_br[chosen_br][1],
+                      "label": seg.get("label", "").replace("{呼吸紊乱}", br_label)}
+                     if seg.get("br_state") == "random" else seg)
+                    for seg in segments
+                ]
             # 状态机归零：每轮剧本从干净状态开场（事件历史保留）
             processor = SampleProcessor(zone="living")
             _apply_profile_to_processor()
+            voice_session.reset()
+            auto_fired = False
+            voice_seen_wall = 0.0
             await manager.broadcast({"kind": "demo_state_cleared", "data": {}})
             sim_t = 0.0
-            for seg in scen["segments"]:
+            for seg in segments:
                 for _ in range(int(seg["duration_s"])):
                     if not _mode_state["demo_enabled"] or _mode_state["real_enabled"]:
                         return  # 开关关闭或被真实接入打断
@@ -309,6 +340,15 @@ async def _run_demo(name: str) -> None:
                     events = processor.process(ts, sim_t, intensity, zone, br_rate, br_st)
                     for ev in events:
                         await _handle_event(ev)
+                    # 剧本自动回应：呼唤测试进行中且到达剧本设定秒数 → 模拟老人开口
+                    if auto_resp and not auto_fired and voice_session.is_active():
+                        if voice_seen_wall <= 0:
+                            voice_seen_wall = time.time()
+                        elif time.time() - voice_seen_wall >= float(auto_resp.get("after_voice_s", 8)):
+                            auto_fired = True
+                            what = "「我没事」" if auto_resp["answer"] == "ok" else "呼救「救我…哎呀好疼」"
+                            sys_log("info", f"演示剧本模拟老人回应{what}")
+                            await _apply_voice_answer(auto_resp["answer"])
                     await manager.broadcast({
                         "kind": "sample",
                         "data": {"ts": ts, "sim_t": sim_t, "intensity": intensity,
@@ -835,7 +875,13 @@ async def api_get_voice_confirm():
 
 @app.post("/api/voice-confirm/respond")
 async def api_voice_respond(answer: str = "ok"):
-    """老人回应语音确证：ok=我没事，help=我需要帮助。"""
+    """老人回应语音确证：ok=我没事，help=我需要帮助（含呻吟/呼救侦测入口）。"""
+    state = await _apply_voice_answer(answer)
+    return {"ok": True, "state": state}
+
+
+async def _apply_voice_answer(answer: str) -> str:
+    """应用一次语音回应（API 与演示剧本自动回应共用同一处置逻辑）。"""
     state = voice_session.respond(answer)
     await manager.broadcast({"kind": "voice_responded", "data": {"state": state, "answer": answer}})
     if state == "ok":
@@ -852,7 +898,7 @@ async def api_voice_respond(answer: str = "ok"):
         processor._voice_round = 0
         processor._set_zone(ZONE_RED)
         await manager.broadcast({"kind": "alert_escalated", "data": {"reason": "老人求助，升级告警"}})
-    return {"ok": True, "state": state}
+    return state
 
 
 # ---- 开放式疾病管理 API ----
