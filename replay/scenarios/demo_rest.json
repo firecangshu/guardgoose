@@ -1,11 +1,12 @@
 {
-  "name": "有人 · 正常 · 休憩中",
+  "name": "平安的一天 · 休憩",
   "zone": "living",
-  "description": "先短暂活动确认有人，随后静坐休息、气息均匀 → 系统判定「正常 · 有人休息中 · 呼吸平稳」。",
-  "speed": 10,
+  "description": "完整故事：老人回家放东西、走动一会儿 → 坐到沙发上休息 → 安静看电视，呼吸全程平稳 → 系统判定正常·休憩中，静默守护不打扰。展示『平安时系统不说话』的设计哲学。",
+  "speed": 1,
   "segments": [
-    { "label": "在家活动（确认有人）", "duration_s": 20, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
-    { "label": "坐下休息，气息均匀", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 },
-    { "label": "安静看电视，呼吸平稳", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 }
+    { "label": "老人回家，放下东西走动了几下", "duration_s": 20, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 },
+    { "label": "在屋里慢慢踱步", "duration_s": 10, "pattern": "active", "low": 0.3, "high": 0.5, "br_low": 14, "br_high": 16 },
+    { "label": "坐到沙发上歇着", "duration_s": 40, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 },
+    { "label": "安静看电视，呼吸平稳", "duration_s": 50, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 15 }
   ]
 }

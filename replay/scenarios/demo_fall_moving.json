@@ -1,13 +1,14 @@
 {
-  "name": "有人 · 异常 · 疑似跌倒（移动中）",
+  "name": "跌倒 · 紧急救援",
   "zone": "living",
-  "description": "均速移动中 → 突然剧烈运动 + 气息紊乱（双证据线成立）→ 告警，进入与静止中跌倒完全一致的后续确证链；本场景现场持续无应答 → 两轮语音无应答 → 危机升级递进措施；呼吸紊乱持续加剧，监测条展示趋势。",
-  "speed": 30,
+  "description": "完整故事：老人走动时跌倒 → 系统双证据成立立即告警 → 第一轮语音确证无人应答 → 第二轮询问仍无应答 → 危机升级，通知子女、拨打紧急电话。展示『真出事时系统逐级兜底』的完整升级链。因语音确证链需真实等待（一轮90秒+二轮20秒），本剧本全程约三分钟。",
+  "speed": 1,
   "segments": [
-    { "label": "匀速走动", "duration_s": 40, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
-    { "label": "突然剧烈波动（跌倒瞬间）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 16, "br_high": 20 },
-    { "label": "倒地静止·气息开始紊乱", "duration_s": 30, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 24, "br_state": "elevated" },
-    { "label": "倒地静止·呼吸急速递升", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 25, "br_high": 27, "br_state": "elevated" },
-    { "label": "倒地静止·气息紊乱加剧", "duration_s": 80, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 28, "br_high": 30, "br_state": "elevated" }
+    { "label": "老人在屋里走动", "duration_s": 20, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 },
+    { "label": "突然跌倒（剧烈冲击）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 16, "br_high": 20 },
+    { "label": "倒地不起 · 气息紊乱（系统告警，第一轮语音询问）", "duration_s": 30, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
+    { "label": "现场无应答 · 等待第一轮确证超时", "duration_s": 80, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 23, "br_high": 27, "br_state": "elevated" },
+    { "label": "第二轮询问 · 仍无应答", "duration_s": 25, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 24, "br_high": 28, "br_state": "elevated" },
+    { "label": "危机升级 · 通知子女并拨打紧急电话", "duration_s": 20, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 25, "br_high": 29, "br_state": "elevated" }
   ]
 }

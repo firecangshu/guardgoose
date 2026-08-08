@@ -54,11 +54,10 @@ const currentScenarioLabel = computed(() =>
 const scenarioIndex = computed(() =>
   store.demoScenarios.findIndex(s => s.scenario === store.demoScenario))
 const SCENARIO_COLORS: Record<string, string> = {
-  demo_absent: '#6b7280',
   demo_active: '#16a34a',
   demo_rest: '#2563eb',
+  demo_fall_still: '#d97706',
   demo_fall_moving: '#dc2626',
-  demo_fall_still: '#b91c1c',
 }
 const scenarioColor = computed(() => SCENARIO_COLORS[store.demoScenario] || '#969799')
 function onNextScenario() {

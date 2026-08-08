@@ -1,10 +1,12 @@
 {
-  "name": "有人 · 正常 · 移动中",
+  "name": "平安的一天 · 活动",
   "zone": "living",
-  "description": "匀速活动、气息均匀 → 系统判定「正常 · 有人活动中」，绿区巡航不告警。",
-  "speed": 10,
+  "description": "完整故事：老人做做家务、来回走动 → 中途站着歇了口气 → 继续收拾屋子，气息始终均匀 → 系统判定正常·活动中，绿区巡航不误报。展示『正常活动不会被当成异常』。",
+  "speed": 1,
   "segments": [
-    { "label": "在家匀速活动（做家务、走动）", "duration_s": 60, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
-    { "label": "继续活动，气息均匀", "duration_s": 60, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 }
+    { "label": "做做家务，来回走动", "duration_s": 40, "pattern": "active", "low": 0.35, "high": 0.6, "br_low": 14, "br_high": 18 },
+    { "label": "停下来歇口气", "duration_s": 15, "pattern": "still", "low": 0.02, "high": 0.05, "br_low": 13, "br_high": 16 },
+    { "label": "继续收拾屋子", "duration_s": 40, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 },
+    { "label": "忙完了，慢慢踱步放松", "duration_s": 25, "pattern": "active", "low": 0.3, "high": 0.5, "br_low": 14, "br_high": 16 }
   ]
 }

@@ -248,21 +248,16 @@ async def api_reset():
 # ---- 数据源模式：真实接入 > 演示场景 > 待机（无数据流）----
 SCEN_DIR = Path(__file__).resolve().parent.parent / "replay" / "scenarios"
 
-# 演示场景层级：一级=无人/有人；二级（有人之下）=正常（休憩/移动）/异常（疑似跌倒几种状态）
+# 演示剧本清单：一个场景一个完整故事（起承转合+结局），循环播放至手动关闭
 DEMO_SCENARIOS = [
-    # 一级：无人
-    {"scenario": "demo_absent", "label": "无人",
-     "desc": "全程无活动、呼吸测不到，系统不断言不告警（演示对比用）"},
-    # 二级：有人 · 正常
-    {"scenario": "demo_rest", "label": "有人 · 正常 · 休憩中",
-     "desc": "无活动、气息均匀，系统判定正常·休憩中·呼吸平稳"},
-    {"scenario": "demo_active", "label": "有人 · 正常 · 移动中",
-     "desc": "匀速活动、气息均匀，系统判定正常·移动中"},
-    # 二级：有人 · 异常（疑似跌倒的几种状态）
-    {"scenario": "demo_fall_moving", "label": "有人 · 异常 · 疑似跌倒（移动中）",
-     "desc": "均速移动中突然剧烈运动+气息紊乱，双证据成立告警进入同一确证链；本场景现场无应答，演示升级危机"},
-    {"scenario": "demo_fall_still", "label": "有人 · 异常 · 疑似跌倒（静止中）",
-     "desc": "静止中突然剧烈运动+气息紊乱，双证据成立告警进入同一确证链；本场景现场起身恢复，演示自动解除"},
+    {"scenario": "demo_rest", "label": "平安的一天 · 休憩",
+     "desc": "完整故事：回家走动→坐下休息→安静看电视，呼吸平稳，系统静默守护不打扰"},
+    {"scenario": "demo_active", "label": "平安的一天 · 活动",
+     "desc": "完整故事：做家务走动→歇口气→继续收拾，气息均匀，正常活动不误报"},
+    {"scenario": "demo_fall_still", "label": "跌倒 · 虚惊一场",
+     "desc": "完整故事：跌倒→告警→语音确证→自行起身恢复→自动解除告警，闭环收场"},
+    {"scenario": "demo_fall_moving", "label": "跌倒 · 紧急救援",
+     "desc": "完整故事：跌倒→告警→两轮语音无应答→危机升级，通知子女并拨打紧急电话"},
 ]
 
 _mode_state = {"real_enabled": False, "demo_enabled": False, "demo_scenario": ""}

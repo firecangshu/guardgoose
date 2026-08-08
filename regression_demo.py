@@ -1,13 +1,15 @@
-"""5 演示场景回放回归（对着运行中的边缘服务跑全链路）。
+"""4 完整剧本回放回归（对着运行中的边缘服务跑全链路）。
 
 用法：python regression_demo.py [base_url]   （默认 http://127.0.0.1:8000）
 
-断言线（对应计划第七节）：
-- demo_absent      无人零断言零告警
-- demo_active      有人·活动中，无告警
-- demo_rest        有人·休息中，无告警
-- demo_fall_moving 双证据→告警→requery→两轮无人应答→危机（黑区）
-- demo_fall_still  双证据→告警→运动恢复→EVT_FALL_RECOVERED 自动解除归绿
+断言线：
+- demo_rest        平安的一天·休憩：全程无告警，终态休憩
+- demo_active      平安的一天·活动：全程无告警，终态活动
+- demo_fall_moving 跌倒·紧急救援：双证据→告警→requery→两轮无应答→危机（黑区）
+- demo_fall_still  跌倒·虚惊一场：双证据→告警→运动恢复→自动解除归绿
+
+注意：剧本现已循环播放，回归在首轮播完后关闭演示停表再断言终态；
+紧急救援剧本含真实语音等待（一轮90s+二轮20s），全程约 9 分钟。
 """
 from __future__ import annotations
 
@@ -25,11 +27,10 @@ except Exception:
     pass
 
 SCENARIOS = {
-    "demo_absent": {"dur": 80, "speed": 10},
-    "demo_active": {"dur": 120, "speed": 10},
-    "demo_rest": {"dur": 140, "speed": 10},
-    "demo_fall_moving": {"dur": 213, "speed": 30},
-    "demo_fall_still": {"dur": 118, "speed": 30},
+    "demo_rest": {"dur": 120, "speed": 1},
+    "demo_active": {"dur": 120, "speed": 1},
+    "demo_fall_moving": {"dur": 178, "speed": 1},
+    "demo_fall_still": {"dur": 98, "speed": 1},
 }
 
 
@@ -42,12 +43,15 @@ def req(method: str, path: str, body: dict | None = None) -> dict | list:
 
 
 def run_scenario(name: str) -> tuple[list[dict], dict]:
-    """重置 → 播放场景 → 等待播完 → 返回（事件列表, 终态 status）。"""
+    """重置 → 播放场景 → 等首轮播完 → 关演示停表 → 返回（事件列表, 终态 status）。
+    剧本现在是循环播放，不关闭的话状态会进第二轮，终态不可断言。"""
     req("POST", "/api/reset")
     req("POST", "/api/source-mode/demo", {"enabled": True, "scenario": name})
     wait = SCENARIOS[name]["dur"] / SCENARIOS[name]["speed"] + 3
     time.sleep(wait)
     events = req("GET", "/api/events?limit=100")
+    req("POST", "/api/source-mode/demo", {"enabled": False, "scenario": name})
+    time.sleep(1)
     status = req("GET", "/api/status")
     return events, status
 
@@ -67,30 +71,25 @@ def check(cond: bool, msg: str) -> None:
 
 
 def main() -> None:
-    # ---- 1 无人：零断言零告警 ----
-    print("\n▶ demo_absent 无人·环境安静")
-    ev, st = run_scenario("demo_absent")
     alarm_types = {"fall_breathing_bad", "breathing_lost", "breathing_abnormal",
                    "voice_requery", "fall_recovered"}
-    check(not (alarm_types & set(types(ev))), "全程无告警类事件")
-    check(st.get("present") is False, "终态无人（present=False）")
 
-    # ---- 2 有人·活动中 ----
-    print("\n▶ demo_active 有人·活动中")
-    ev, st = run_scenario("demo_active")
-    check(not (alarm_types & set(types(ev))), "全程无告警类事件")
-    check(st.get("present") is True, "终态有人")
-    check(st.get("semantic_state") == "active", f"终态语义=活动中（实际 {st.get('semantic_state')}）")
-
-    # ---- 3 有人·休息中 ----
-    print("\n▶ demo_rest 有人·休息中")
+    # ---- 1 平安的一天·休憩 ----
+    print("\n▶ demo_rest 平安的一天·休憩")
     ev, st = run_scenario("demo_rest")
     check(not (alarm_types & set(types(ev))), "全程无告警类事件")
     check(st.get("present") is True, "终态有人")
     check(st.get("semantic_state") == "rest", f"终态语义=休息中（实际 {st.get('semantic_state')}）")
 
-    # ---- 4 移动中跌倒：危机全链 ----
-    print("\n▶ demo_fall_moving 疑似跌倒·移动中（危机全链）")
+    # ---- 2 平安的一天·活动 ----
+    print("\n▶ demo_active 平安的一天·活动")
+    ev, st = run_scenario("demo_active")
+    check(not (alarm_types & set(types(ev))), "全程无告警类事件")
+    check(st.get("present") is True, "终态有人")
+    check(st.get("semantic_state") == "active", f"终态语义=活动中（实际 {st.get('semantic_state')}）")
+
+    # ---- 3 跌倒·紧急救援：危机全链 ----
+    print("\n▶ demo_fall_moving 跌倒·紧急救援（危机全链，含真实语音等待约3分钟）")
     ev, st = run_scenario("demo_fall_moving")
     ts = types(ev)
     check("fall_breathing_bad" in ts, "双证据线成立告警")
@@ -107,8 +106,8 @@ def main() -> None:
     ack = req("POST", "/api/alert-ack")
     check(ack.get("ok") is True, "POST /api/alert-ack 已知晓接口可用")
 
-    # ---- 5 静止中跌倒：恢复自解除 ----
-    print("\n▶ demo_fall_still 疑似跌倒·静止中（恢复自解除）")
+    # ---- 4 跌倒·虚惊一场：恢复自解除 ----
+    print("\n▶ demo_fall_still 跌倒·虚惊一场（恢复自解除）")
     ev, st = run_scenario("demo_fall_still")
     ts = types(ev)
     check("fall_breathing_bad" in ts, "双证据线成立告警")
