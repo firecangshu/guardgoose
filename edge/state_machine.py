@@ -18,8 +18,8 @@
 - 双证据线铁律：紧急 = 运动突增 + 呼吸变化同时成立；
   只有动作冲击、呼吸无变化 → 静默记录不告警（伸懒腰/弯腰处理）
 - 基础病修正系数（apply_profile 注入，见 medical.CONDITION_COEFFICIENTS）：
-  呼吸警戒带上移防基线偏快误报、呼吸消失确认拉长防病态暂停误报、
-  活动带下探认小碎步、Type B 加严防冻结步态误报
+  铁律：基础病只收紧不放宽——活动带下探认小碎步、节律紊乱视为恶化、
+  高危跳过现场呼唤直升告警；放宽方向系数一律出口钳制归零
 """
 from __future__ import annotations
 
@@ -207,8 +207,8 @@ class SampleProcessor:
         # ---- 呼吸消失检测（最高优先级，Zone 4）----
         # 存在证据门槛（20260806 集成测试修复）：空房间本来就测不到呼吸，
         # 「测不到」≠「呼吸骤停」。只有近期确认有人时 lost 才有诊断意义。
-        # 病态暂停防误报（基础病修正）：心衰潮式呼吸/癫痫发作期含 5~30s
-        # 中枢性暂停，lost 需持续 br_lost_confirm_s 秒才告警（0=立即）。
+        # 呼吸消失防抖（铁律钳制后 br_lost_confirm_s 恒为 0 立即告警；
+        # 保留字段供未来校准，基础病只收紧不放宽）：
         if br == BR_LOST:
             if self._presence_active_s <= C.PRESENCE_EVIDENCE_WINDOW_S:
                 self._br_lost_s += dt

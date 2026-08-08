@@ -56,17 +56,17 @@ MULTI_MED_THRESHOLD = 4  # 多重用药阈值（≥4种）——仅档案备查�
 #   癫痫 发作期呼吸暂停 10~30s 是病症本身，发作后呼吸先恢复但不规则
 #   脑梗 潮式/长吸式呼吸=脑干受累（节律异常权重加重）；偏瘫致运动幅度下降
 #   帕金森 小碎步/拖步→活动强度偏低；冻结步态=活动中骤停，形似 Type B 跌倒候选
-# ⚠️ 具体数值为经验值待实测校准：原则是「只松防误报、严只用在确认环节」，
-#    绝不做「因为有病所以更容易触发报警」的灵敏度提升。
+# ⚠️ 铁律（20260808 用户定稿）：基础病只会收紧各方面指标，绝不放宽——
+#    有病=高风险=告警更快更敏感，宁可误报不可漏报；病理性暂停等防误报
+#    放宽系数一律不得生效（build_adjustments 出口钳制兜底）。
 CONDITION_COEFFICIENTS: dict[str, dict[str, Any]] = {
-    HX_HEART: {"br_elevated_adjust": 5, "br_lost_confirm_s": 30,
-               "rhythm_abnormal_weight": False},
+    HX_HEART: {},                     # 收紧项：跳过现场呼唤直升告警（build_adjustments 内实现）
     HX_STROKE: {"active_min_adjust": -0.05,
                 "rhythm_abnormal_weight": True},
-    HX_EPILEPSY: {"br_lost_confirm_s": 30},
+    HX_EPILEPSY: {},
     HX_DIABETES: {},
-    HX_PARKINSON: {"active_min_adjust": -0.05, "type_b_still_s": 25},
-    HX_ANEMIA: {"br_elevated_adjust": 2},
+    HX_PARKINSON: {"active_min_adjust": -0.05},
+    HX_ANEMIA: {},
     # 高血压：不加检测系数（zone3_max_stay 升级逻辑已单独实现）
 }
 
@@ -86,12 +86,13 @@ DEFAULT_ADJUSTMENTS: dict[str, Any] = {
 
 
 def build_adjustments(profile: "MedicalProfile") -> dict[str, Any]:
-    """把档案病史汇总成一份扁平修正系数（多病叠加：松取最松、严取最严）。
+    """把档案病史汇总成一份扁平修正系数（多病叠加：收紧取最严）。
 
     这是状态机/守护页读取修正值的唯一入口：
-    - 防误报类（br_elevated_adjust 上移、active_min 下探）取最松值
-    - 确认加严类（br_lost_confirm_s、type_b_still_s）取最严值
+    - 收紧类（active_min 下探）取最严值；br_elevated_adjust 负值=下移更敏感取最低
     - 开关类（skip_voice/rhythm_weight）任一病史命中即生效
+    - 铁律钳制：基础病只收紧不放宽——放宽方向的系数（加快线上移、
+      呼吸消失防抖、Type B 确认拉长）无论预置还是自定义一律归零
     """
     adj = {**DEFAULT_ADJUSTMENTS, "conditions_applied": []}
     codes = []
@@ -120,6 +121,14 @@ def build_adjustments(profile: "MedicalProfile") -> dict[str, Any]:
     if HX_HEART in profile.conditions:
         adj["skip_voice"] = True
         adj["voice_timeout"] = 0
+    # 铁律钳制（20260808 定稿）：基础病只收紧不放宽——放宽方向的系数
+    # （加快警戒线上移、呼吸消失防抖、Type B 确认拉长，默认 FALL_B_STILL_S=15）
+    # 无论预置还是自定义一律归零，宁误报不漏报
+    if adj["br_elevated_adjust"] > 0:
+        adj["br_elevated_adjust"] = 0
+    adj["br_lost_confirm_s"] = 0
+    if adj["type_b_still_s"] > 15:
+        adj["type_b_still_s"] = 0
     adj["conditions_applied"] = codes
     return adj
 
@@ -162,10 +171,10 @@ class CustomDisease:
     skip_voice: bool = False         # 是否跳过语音确认
     zone3_max_stay: int = 0          # Zone 3 最大停留时间（0=不限）
     # ---- 检测修正系数（千人千档，0=不修正）----
-    br_elevated_adjust: int = 0      # 呼吸「加快」警戒线上移量（如COPD +4）
-    br_lost_confirm_s: int = 0       # 呼吸消失需持续秒数（病态暂停防误报）
+    br_elevated_adjust: int = 0      # 呼吸「加快」警戒线调整（负值=下移更敏感；正值放宽被钳制）
+    br_lost_confirm_s: int = 0       # 呼吸消失需持续秒数（铁律钳制恒为 0=立即）
     active_min_adjust: float = 0.0   # 活动判定带偏移（偏瘫/小碎步用负值下探）
-    type_b_still_s: int = 0          # Type B 确认时长覆盖（冻结步态防误报）
+    type_b_still_s: int = 0          # Type B 确认时长覆盖（>15 放宽方向被钳制）
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

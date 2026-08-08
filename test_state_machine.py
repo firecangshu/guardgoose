@@ -3,7 +3,7 @@
 用例对应计划验收线：
 1. 伸懒腰：尖峰 + 呼吸无变化 → 静默记录不告警（双证据线未成立）
 2. 双证据：尖峰 + 呼吸加快 → 告警成立（双证据线成立）
-3. 系数：COPD 档案 rate=22 不算 elevated；无档案 rate=22 算 elevated
+3. 系数铁律：基础病只收紧不放宽（自定义病史上移加快线被钳制归零）
 4. 存在证据：空房间呼吸测不到 → 不告警（有人时呼吸消失才告警，防回归）
 5. 双轮确证：第一轮超时 → requery 不升黑区；第二轮超时 → 危机（黑区）
 6. 第二轮时长：急救导向默认 10s，慢性病档案同为 10s
@@ -115,19 +115,21 @@ def test_fall_alarm_when_breathing_elevated():
     assert "双证据线成立" in bad[0].features.get("context", "")
 
 
-# ---- 用例3：基础病修正系数（COPD 呼吸警戒线上移）----
+# ---- 用例3：系数铁律（基础病只收紧不放宽：放宽方向系数被钳制归零）----
 
 def test_copd_profile_shifts_elevated_threshold():
     disease = CustomDisease(code="copd", name="慢性阻塞性肺病",
                             category="呼吸系统", br_elevated_adjust=4)
     medical.register_disease(disease)
     try:
-        # 有 COPD 档案：rate=22 在其正常带内（上限 20+4=24），不算 elevated
+        # 铁律：自定义病史试图上移呼吸加快线（放宽）→ 出口钳制归零，
+        # rate=22 与无档案一样判 elevated，有病只会更严不会更松
         p_copd = SampleProcessor(zone="living")
         p_copd.apply_profile(MedicalProfile(conditions=["copd"]))
-        assert p_copd.breathing_band_max == 24, "呼吸正常带上限应按档案上移"
-        assert p_copd._classify_breathing(22) == BR_NORMAL
-        assert p_copd._classify_breathing(25) == "elevated", "超过修正上限仍应判加快"
+        assert p_copd.breathing_band_max == C.BR_RATE_ELEVATED, \
+            "放宽方向的加快线上移不得生效（铁律钳制）"
+        assert p_copd._classify_breathing(22) == "elevated", \
+            "有档案时 rate=22 仍应判加快（不放宽）"
 
         # 无档案基准：rate=22 即算 elevated
         p_base = SampleProcessor(zone="living")

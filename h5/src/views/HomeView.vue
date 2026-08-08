@@ -243,14 +243,13 @@ const statusBorderColor = computed(() => {
   return '#16a34a'
 })
 
-/** 档案修正痕迹小字（千人千档：只松防误报，不动物理阈值） */
+/** 档案修正痕迹小字（千人千档：基础病只收紧，不放宽） */
 const adjustNotes = computed(() => {
   const adj = store.profileAdjustments || {}
   const notes: string[] = []
-  if (adj.br_elevated_adjust > 0) notes.push(`呼吸正常带已按档案调整至 ≤${store.breathingBandMax} 次/分`)
+  if (adj.br_elevated_adjust < 0) notes.push(`呼吸加快警戒线已按档案下调至 ≤${store.breathingBandMax} 次/分（更敏感）`)
   if (adj.skip_voice) notes.push('已按档案跳过现场语音询问')
   else if (typeof adj.voice_timeout === 'number' && adj.voice_timeout > 0 && adj.voice_timeout !== 15) notes.push(`语音等待 ${adj.voice_timeout} 秒`)
-  if (adj.br_lost_confirm_s > 0) notes.push(`呼吸消失确认已按档案放宽至 ${adj.br_lost_confirm_s} 秒（病态暂停防误报）`)
   if (adj.active_min_adjust < 0) notes.push('运动判定带已按档案下探（动作幅度偏低）')
   return notes.join(' · ')
 })
