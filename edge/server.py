@@ -288,46 +288,54 @@ def _demo_breathing(seg: dict) -> tuple[int, str]:
 
 async def _run_demo(name: str) -> None:
     """进程内场景播放：剧本展开为逐秒样本直接注入状态机，
-    与真实硬件数据走完全相同的判定链路（入库→告警派生→广播）。"""
-    global _last_sample_wall
+    与真实硬件数据走完全相同的判定链路（入库→告警派生→广播）。
+    剧本播完自动从头循环：演示接入常驻不掉线，直到手动关闭开关；
+    循环回卷时状态机归零，告警类剧本不会无限叠加升级。"""
+    global processor, _last_sample_wall
     scen = json.loads((SCEN_DIR / f"{name}.json").read_text(encoding="utf-8"))
     speed = float(scen.get("speed", 10))
     zone = scen.get("zone", "living")
     await manager.broadcast({"kind": "demo", "data": {"running": True, "scenario": name}})
-    sim_t = 0.0
     try:
-        for seg in scen["segments"]:
-            for _ in range(int(seg["duration_s"])):
-                if not _mode_state["demo_enabled"] or _mode_state["real_enabled"]:
-                    return  # 开关关闭或被真实接入打断
-                ts = datetime.now().astimezone().isoformat(timespec="seconds")
-                intensity = round(random.uniform(seg["low"], seg["high"]), 3)
-                br_rate, br_st = _demo_breathing(seg)
-                _last_sample_wall = time.time()
-                events = processor.process(ts, sim_t, intensity, zone, br_rate, br_st)
-                for ev in events:
-                    await _handle_event(ev)
-                await manager.broadcast({
-                    "kind": "sample",
-                    "data": {"ts": ts, "sim_t": sim_t, "intensity": intensity,
-                             "zone": zone, "present": processor.present,
-                             "breathing_rate": br_rate, "breathing_state": br_st,
-                             "guard_zone": processor.guard_zone,
-                             "semantic_state": processor.semantic_state,
-                             "breathing_band_max": processor.breathing_band_max},
-                })
-                sim_t += 1
-                await asyncio.sleep(1.0 / speed)
+        while True:
+            # 状态机归零：每轮剧本从干净状态开场（事件历史保留）
+            processor = SampleProcessor(zone="living")
+            _apply_profile_to_processor()
+            await manager.broadcast({"kind": "demo_state_cleared", "data": {}})
+            sim_t = 0.0
+            for seg in scen["segments"]:
+                for _ in range(int(seg["duration_s"])):
+                    if not _mode_state["demo_enabled"] or _mode_state["real_enabled"]:
+                        return  # 开关关闭或被真实接入打断
+                    ts = datetime.now().astimezone().isoformat(timespec="seconds")
+                    intensity = round(random.uniform(seg["low"], seg["high"]), 3)
+                    br_rate, br_st = _demo_breathing(seg)
+                    _last_sample_wall = time.time()
+                    events = processor.process(ts, sim_t, intensity, zone, br_rate, br_st)
+                    for ev in events:
+                        await _handle_event(ev)
+                    await manager.broadcast({
+                        "kind": "sample",
+                        "data": {"ts": ts, "sim_t": sim_t, "intensity": intensity,
+                                 "zone": zone, "present": processor.present,
+                                 "breathing_rate": br_rate, "breathing_state": br_st,
+                                 "guard_zone": processor.guard_zone,
+                                 "semantic_state": processor.semantic_state,
+                                 "breathing_band_max": processor.breathing_band_max},
+                    })
+                    sim_t += 1
+                    await asyncio.sleep(1.0 / speed)
+            sys_log("info", f"演示剧本「{name}」播完一轮 · 从头循环（演示接入保持接通）")
     except asyncio.CancelledError:
         return
     finally:
+        # 只有手动关闭/被真实接入打断才落到这里：同步开关状态给前端
         if _mode_state["demo_scenario"] == name:
             _mode_state["demo_enabled"] = False
             _mode_state["demo_scenario"] = ""
             await manager.broadcast({"kind": "demo", "data": {"running": False, "scenario": ""}})
-            # 剧本播完自动关闭：同步 source_mode，避免前端开关停留在“开”位
             await manager.broadcast({"kind": "source_mode", "data": dict(_mode_state)})
-            sys_log("info", f"演示剧本「{name}」播放完毕 · 演示接入已自动关闭")
+            sys_log("info", f"演示剧本「{name}」已停止 · 演示接入已关闭")
 
 
 async def _stop_demo() -> None:
@@ -567,7 +575,18 @@ async def api_device_auto_check():
 @app.get("/api/device/connection-test")
 async def api_connection_test():
     """信号接通测试：逐环体检“板子 → 桥接器 → 后端 → 判定”全链路，
-    每项给结论与修复建议，供子女端一键检测。"""
+    每项给结论与修复建议，供子女端一键检测。
+    演示接入期间配合演出：不查真实硬件，按剧本假设信号良好全绿。"""
+    if _mode_state["demo_enabled"]:
+        items = [
+            {"name": "边缘网关", "ok": True, "detail": "在线，判定服务正常"},
+            {"name": "信号桥接器", "ok": True, "detail": "演示接入 · 虚拟数据流按剧本稳定上报"},
+            {"name": "接收板", "ok": True, "detail": "演示信号 · 假设探测器信号良好"},
+            {"name": "链路质量", "ok": True, "detail": "演示模式 · 信号质量按剧本常驻良好"},
+        ]
+        return {"ok": True, "verdict": "演示接入：信号链路按剧本常驻良好",
+                "items": items,
+                "tested_at": datetime.now().astimezone().isoformat(timespec="seconds")}
     state, lag = _device_freshness()
     bridge_ok, bridge_lag = _bridge_alive()
     phase = _bridge_state.get("phase", "")
