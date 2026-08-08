@@ -1,0 +1,9 @@
+{
+  "name": "20260731_第一次测试",
+  "kind": "raw_csi",
+  "source": "E:\\小有可为\\测试数据\\csi_data.csv",
+  "source_mtime": "2026-07-31T19:12:18",
+  "note": "首轮真机采集（站立/走动/跌倒混场）",
+  "imported_at": "2026-08-08T23:10:18+08:00",
+  "persecond_csv": "20260731_第一次测试_persecond.csv"
+}

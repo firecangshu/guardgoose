@@ -65,12 +65,15 @@ class CsiBridge:
     """采集循环：读行 → 解析 → 逐秒聚合 → POST /ingest/sample。"""
 
     def __init__(self, backend: str, zone: str, lost_seconds: int,
-                 csv_out: str | None = None, verbose: bool = False):
+                 csv_out: str | None = None, verbose: bool = False,
+                 session_label: str | None = None):
         self.backend = backend.rstrip("/")
         self.zone = zone
         self.lost_seconds = max(0, lost_seconds)
         self.csv_out = csv_out
         self.verbose = verbose
+        self.session_label = session_label   # 真机测试数据库：带标签则逐秒落盘
+        self._session_fp = None
         self.activity = ActivityEstimator()
         self.breath = BreathDetector()
         self._fps_ema = self.breath.fs   # 实测帧率 EMA（校准 FFT 采样率）
@@ -175,7 +178,10 @@ class CsiBridge:
             pf.setdefault("fps", []).append(fps)
             pf.setdefault("rssi", []).append(self._last_rssi)
         else:
-            self._post(report_intensity, rate, state, consensus, locked)
+            self._post(report_intensity, rate, state, consensus, locked,
+                       motion_ratio)
+            self._session_log(report_intensity, rate, state, locked,
+                              motion_ratio, fps)
 
         # 状态行
         self._fps_count = 0
@@ -217,7 +223,8 @@ class CsiBridge:
         except Exception:
             pass
 
-    def _post(self, intensity, rate, state, consensus, locked) -> None:
+    def _post(self, intensity, rate, state, consensus, locked,
+              motion_ratio: float = 0.0) -> None:
         if intensity is None:
             return
         body = {
@@ -227,6 +234,9 @@ class CsiBridge:
             "zone": self.zone,
             "breathing_rate": int(rate) if rate is not None else 0,
             "breathing_state": state or "normal",
+            # 锁频诊断（真机调参取证）：共识子载波数/窗口内运动帧占比
+            "br_locked": float(locked or 0.0),
+            "br_motion_ratio": round(float(motion_ratio), 3),
             "noise_floor": round(float(self.noise.floor), 4),
         }
 
@@ -251,6 +261,91 @@ class CsiBridge:
     def close(self) -> None:
         if self._csv_fp:
             self._csv_fp.close()
+        if self._session_fp:
+            self._session_fp.close()
+            self._session_fp = None
+            self._session_summarize()
+
+    # ---- 真机测试数据库：逐秒样本落盘（test_data_db/sessions）----
+    def _session_log(self, intensity, rate, state, locked,
+                     motion_ratio, fps) -> None:
+        if not self.session_label:
+            return
+        if self._session_fp is None:
+            from pathlib import Path
+            db_dir = Path(__file__).resolve().parent.parent / "test_data_db" / "sessions"
+            db_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M")
+            path = db_dir / f"{stamp}_{self.session_label}.csv"
+            self._session_fp = open(path, "w", encoding="utf-8")
+            self._session_fp.write("ts,sim_t,intensity,br_rate,br_state,"
+                                   "br_locked,br_motion_ratio,noise_floor,rssi,fps\n")
+            print(f"[测试数据库] 逐秒样本落盘 → {path}", flush=True)
+        self._session_fp.write(
+            f"{datetime.now().astimezone().isoformat(timespec='seconds')},"
+            f"{self._sim_t},{intensity if intensity is not None else ''},"
+            f"{int(rate) if rate is not None else 0},{state or ''},"
+            f"{locked or 0:.0f},{motion_ratio:.3f},"
+            f"{self.noise.floor:.4f},{self._last_rssi},{fps:.1f}\n")
+        self._session_fp.flush()
+
+    def _session_summarize(self) -> None:
+        """会话收尾：读回本次逐秒 CSV，落一份 summary.json 到会话库，
+        供离线找规律（锁频率/底噪/RSSI 分布等）。失败不影响主链。"""
+        try:
+            from pathlib import Path
+            db_dir = Path(__file__).resolve().parent.parent / "test_data_db" / "sessions"
+            stamp = datetime.now().strftime("%Y%m%d_%H%M")
+            csv_path = db_dir / f"{stamp}_{self.session_label}.csv"
+            # 落盘文件按启动分钟命名，收尾可能跨分钟：找最近一个同名前缀文件
+            if not csv_path.exists():
+                cands = sorted(db_dir.glob(f"*_{self.session_label}.csv"))
+                if not cands:
+                    return
+                csv_path = cands[-1]
+            import csv as _csv
+            rows = []
+            with open(csv_path, "r", encoding="utf-8") as f:
+                for r in _csv.DictReader(f):
+                    rows.append(r)
+            if not rows:
+                return
+
+            def _col(key, cast=float):
+                out = []
+                for r in rows:
+                    try:
+                        out.append(cast(r[key]))
+                    except (ValueError, TypeError, KeyError):
+                        pass
+                return out
+
+            locked_cnt = _col("br_locked")
+            locked_rate = (sum(1 for v in locked_cnt if v >= 13) / len(locked_cnt)
+                           if locked_cnt else 0.0)
+            intens = _col("intensity")
+            summary = {
+                "label": self.session_label,
+                "csv": str(csv_path.name),
+                "closed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "duration_s": len(rows),
+                "fps_avg": round(sum(_col("fps")) / max(1, len(_col("fps"))), 1),
+                "rssi_last": self._last_rssi,
+                "noise_floor_last": round(float(self.noise.floor), 4),
+                "noise_noisy": bool(self.noise.noisy),
+                "br_lock_rate": round(locked_rate, 3),
+                "br_rate_avg": round(sum(_col("br_rate")) / max(1, len(_col("br_rate"))), 1),
+                "intensity_p90": round(float(np.percentile(intens, 90)), 4) if intens else 0.0,
+                "motion_ratio_avg": round(sum(_col("br_motion_ratio")) /
+                                            max(1, len(_col("br_motion_ratio"))), 3),
+                "note": "",   # 测试后人工补充：几何摆放/人员动作/结论
+            }
+            out = csv_path.with_suffix(".summary.json")
+            out.write_text(json.dumps(summary, ensure_ascii=False, indent=2),
+                           encoding="utf-8")
+            print(f"[测试数据库] 会话总结落盘 → {out}", flush=True)
+        except Exception as e:
+            print(f"[测试数据库] 总结落盘失败（不影响主链）: {e}", flush=True)
 
     def reset_state(self) -> None:
         """自检通过后清零所有估计器：自检期数据不得污染正式监护的基线。"""
@@ -474,10 +569,13 @@ def main() -> None:
     ap.add_argument("--no-preflight", action="store_true",
                     help="跳过开机自检直接推流（默认先自检 15 秒）")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--session-label",
+                    help="真机测试标签：带上则逐秒样本自动落盘到 test_data_db/sessions")
     args = ap.parse_args()
 
     bridge = CsiBridge(args.backend, args.zone, args.lost_seconds,
-                       args.csv_out, args.verbose)
+                       args.csv_out, args.verbose,
+                       session_label=args.session_label)
     stop = [False]
     try:
         if args.replay:

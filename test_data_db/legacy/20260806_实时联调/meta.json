@@ -1,0 +1,9 @@
+{
+  "name": "20260806_实时联调",
+  "kind": "raw_csi",
+  "source": "E:\\小有可为\\waveguard\\test_data_realtime.csv",
+  "source_mtime": "2026-08-06T15:48:06",
+  "note": "状态机 v2 联调期实时采集",
+  "imported_at": "2026-08-08T23:10:47+08:00",
+  "persecond_csv": "20260806_实时联调_persecond.csv"
+}

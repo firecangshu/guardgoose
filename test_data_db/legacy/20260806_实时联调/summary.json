@@ -1,0 +1,10 @@
+{
+  "duration_s": 128,
+  "fps_avg": 72.0,
+  "noise_floor_last": 0.023,
+  "br_lock_rate": 0.039,
+  "br_rate_avg": 0.4,
+  "intensity_p90": 0.1164,
+  "motion_ratio_avg": 0.07,
+  "note": ""
+}

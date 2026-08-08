@@ -1,0 +1,126 @@
+{
+  "duration_s": 732,
+  "fps_avg": 56.3,
+  "noise_floor_last": 0.0,
+  "br_lock_rate": 0.037,
+  "br_rate_avg": 0.3,
+  "intensity_p90": 0.1366,
+  "motion_ratio_avg": 0.0,
+  "note": "",
+  "rounds": {
+    "F1_R1": {
+      "n_s": 30,
+      "fps_avg": 57.6,
+      "br_lock_rate": 0.033,
+      "intensity_p90": 0.2072
+    },
+    "F1_R2": {
+      "n_s": 30,
+      "fps_avg": 57.0,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.1484
+    },
+    "F1_R3": {
+      "n_s": 30,
+      "fps_avg": 57.7,
+      "br_lock_rate": 0.1,
+      "intensity_p90": 0.211
+    },
+    "F2_R1": {
+      "n_s": 30,
+      "fps_avg": 54.9,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0227
+    },
+    "F2_R2": {
+      "n_s": 30,
+      "fps_avg": 56.8,
+      "br_lock_rate": 0.233,
+      "intensity_p90": 0.0305
+    },
+    "F2_R3": {
+      "n_s": 30,
+      "fps_avg": 56.3,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0269
+    },
+    "F3_R1": {
+      "n_s": 29,
+      "fps_avg": 55.7,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0911
+    },
+    "F3_R2": {
+      "n_s": 29,
+      "fps_avg": 57.0,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0322
+    },
+    "F3_R3": {
+      "n_s": 29,
+      "fps_avg": 56.3,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0375
+    },
+    "B1_R1": {
+      "n_s": 59,
+      "fps_avg": 56.7,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0273
+    },
+    "B1_R2": {
+      "n_s": 59,
+      "fps_avg": 57.2,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.2058
+    },
+    "B2_R1": {
+      "n_s": 57,
+      "fps_avg": 56.7,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0217
+    },
+    "B2_R2": {
+      "n_s": 57,
+      "fps_avg": 56.9,
+      "br_lock_rate": 0.07,
+      "intensity_p90": 0.1613
+    },
+    "B3_R1": {
+      "n_s": 57,
+      "fps_avg": 54.7,
+      "br_lock_rate": 0.193,
+      "intensity_p90": 0.1067
+    },
+    "B3_R2": {
+      "n_s": 57,
+      "fps_avg": 55.0,
+      "br_lock_rate": 0.018,
+      "intensity_p90": 0.0925
+    },
+    "F4_R1": {
+      "n_s": 30,
+      "fps_avg": 56.7,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0072
+    },
+    "F4_R2": {
+      "n_s": 30,
+      "fps_avg": 56.4,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.0035
+    },
+    "F4_R3": {
+      "n_s": 30,
+      "fps_avg": 56.4,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.078
+    },
+    "B4_R1": {
+      "n_s": 29,
+      "fps_avg": 54.4,
+      "br_lock_rate": 0.0,
+      "intensity_p90": 0.003
+    }
+  }
+}

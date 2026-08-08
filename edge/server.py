@@ -120,6 +120,9 @@ class SampleIn(BaseModel):
     breathing_rate: int = 0           # 呼吸频率（次/分），0=未检测
     breathing_state: str = ""          # normal/elevated/irregular/shallow/lost
     noise_floor: float = 0.0           # 环境底噪估计（桥接器动态估计，空调噪声补偿）
+    # 呼吸锁频诊断（真机调参取证）：共识子载波数、窗口内运动帧占比
+    br_locked: float = 0.0
+    br_motion_ratio: float = 0.0
 
 
 async def _handle_event(ev: Event) -> None:
@@ -198,6 +201,8 @@ async def ingest_sample(s: SampleIn):
                  "zone": s.zone or processor.zone, "present": processor.present,
                  "breathing_rate": s.breathing_rate,
                  "breathing_state": s.breathing_state or "normal",
+                 "br_locked": s.br_locked,
+                 "br_motion_ratio": s.br_motion_ratio,
                  "noise_floor": s.noise_floor,
                  "guard_zone": processor.guard_zone,
                  "semantic_state": processor.semantic_state,

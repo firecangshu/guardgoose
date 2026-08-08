@@ -1,0 +1,9 @@
+{
+  "name": "20260731_第三次测试",
+  "kind": "raw_csi",
+  "source": "E:\\小有可为\\测试数据\\第三次测试.csv",
+  "source_mtime": "2026-07-31T20:01:15",
+  "note": "第三轮真机采集",
+  "imported_at": "2026-08-08T23:10:45+08:00",
+  "persecond_csv": "20260731_第三次测试_persecond.csv"
+}
