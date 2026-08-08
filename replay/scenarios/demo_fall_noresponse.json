@@ -1,14 +1,15 @@
 {
-  "name": "疑似跌倒 · 无回应 · 顺位联系 · 转120",
+  "name": "疑似跌倒 · 无回应 · 顺位联系 · 二顺位接通结案",
   "zone": "living",
-  "description": "完整故事：老人正常走动 → 突然跌倒，剧烈形变 → 呼吸急促（应激代偿），两级确证成立，立即告警 → 第一轮呼唤 15 秒无回应 → 第二轮呼唤 10 秒，同步通知家人，仍无回应 → 未侦测到呼救、两轮无应答，直升高危危机 → 救护链启动：通知子女、顺位联系附近关系人，全部联系不上自动拨打 120 并同步家庭地址。",
+  "description": "完整故事：老人正常走动 → 突然跌倒，剧烈形变 → 呼吸急促（应激代偿），两级确证成立，立即告警 → 第一轮呼唤 15 秒无回应 → 第二轮呼唤 10 秒，同步通知家人，仍无回应 → 未侦测到呼救、两轮无应答，直升高危危机 → 救护链启动：通知子女 30 秒未接通 → 降级第二顺位，第二顺位第 20 秒接通 → 案件完结，留 120 快拨与已知晓收尾。",
   "speed": 1,
+  "rescue_answer_at_s": 50,
   "segments": [
     { "label": "老人在屋里匀速走动", "duration_s": 10, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 },
     { "label": "突然跌倒（剧烈形变）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 16, "br_high": 20 },
     { "label": "倒地不起 · 呼吸急促（应激代偿）· 两级确证成立 · 告警", "duration_s": 12, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
     { "label": "第一轮呼唤 15 秒 · 等待回应 · 无人应答", "duration_s": 18, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
     { "label": "第二轮呼唤 10 秒 · 同步通知家人 · 仍无回应 → 直升危机", "duration_s": 12, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" },
-    { "label": "救护链启动 · 通知子女（30秒倒计时）→ 顺位联系 → 拨打120 · 同步家庭地址", "duration_s": 95, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" }
+    { "label": "救护链启动 · 通知子女 30 秒未接通 → 第二顺位第 20 秒接通 · 案件完结", "duration_s": 60, "pattern": "still", "low": 0.02, "high": 0.045, "br_low": 22, "br_high": 26, "br_state": "elevated" }
   ]
 }

@@ -7,13 +7,15 @@
 - demo_active         活动中：全程无告警，终态活动
 - demo_fall_still     确认无碍·解除警报：双证据告警→剧本自动回应 ok→解除归绿
 - demo_fall_moving    风险增加·救护链：双证据告警（呼吸紊乱每轮随机：
-                      急促/节律紊乱/减弱骤减）→剧本自动回应 help→跳过一切等待直升危机
-- demo_fall_noresponse 无回应·顺位联系·转120：双证据告警→两轮呼唤（15s+10s）
-                      无回应→无呼救直升高危危机→救护链
+                      急促/节律紊乱/减弱骤减）→第10秒侦测呼救→跳过一切等待直升危机
+                      →救护链第15秒子女接通→结案
+- demo_fall_noresponse 无回应·顺位联系·二顺位接通结案：双证据告警→两轮呼唤（15s+10s）
+                      无回应→无呼救直升高危危机→救护链：子女30秒未接通→
+                      第二顺位第20秒接通（总第50秒）→结案
 
 注意：剧本循环播放，回归在首轮播完后关闭演示停表再断言终态；
-呼唤确证为急救导向 15s/10s，有回应剧本 8s 即回应；无回应剧本末段 95s
-完整演完救护链降级（单顺位 30s × 3）后再转 120。
+呼唤确证为急救导向 15s/10s，呼救剧本第 10 秒侦测呼救、救护链第 15 秒接通；
+无回应剧本救护链第 50 秒二顺位接通结案。
 """
 from __future__ import annotations
 
@@ -34,8 +36,8 @@ SCENARIOS = {
     "demo_rest": {"dur": 60, "speed": 1},
     "demo_active": {"dur": 60, "speed": 1},
     "demo_fall_still": {"dur": 60, "speed": 1},
-    "demo_fall_moving": {"dur": 53, "speed": 1},
-    "demo_fall_noresponse": {"dur": 150, "speed": 1},
+    "demo_fall_moving": {"dur": 57, "speed": 1},
+    "demo_fall_noresponse": {"dur": 115, "speed": 1},
 }
 
 
@@ -109,12 +111,13 @@ def main() -> None:
     logs = req("GET", "/api/system-logs")
     log_text = json.dumps(logs, ensure_ascii=False)
     check("侦测到呼吸紊乱" in log_text, "system-logs 有本轮呼吸紊乱记录")
+    check("顺位人已接通" in log_text, "救护链第 15 秒子女接通 → 结案信号已发出")
     # ack 接口（响铃直到知晓）
     ack = req("POST", "/api/alert-ack")
     check(ack.get("ok") is True, "POST /api/alert-ack 已知晓接口可用")
 
-    # ---- 5 无回应·顺位联系·转120：两轮呼唤无应答 → 直升高危危机 ----
-    print("\n▶ demo_fall_noresponse 疑似跌倒·无回应·顺位联系·转120")
+    # ---- 5 无回应·顺位联系·二顺位接通结案：两轮呼唤无应答 → 直升高危危机 ----
+    print("\n▶ demo_fall_noresponse 疑似跌倒·无回应·顺位联系·二顺位接通结案")
     ev, st = run_scenario("demo_fall_noresponse")
     ts = types(ev)
     check("fall_breathing_bad" in ts, "剧烈形变+呼吸急促 → 双证据线成立告警")
@@ -123,6 +126,9 @@ def main() -> None:
               and "两轮询问无应答" in json.dumps(e.get("features", {}), ensure_ascii=False)]
     check(bool(crisis), "无呼救且两轮无应答 → 直升高危危机事件已落库")
     check(st.get("guard_zone", 0) >= 4, f"终态高危危机·救护链进行中（实际 {st.get('guard_zone')}）")
+    logs5 = req("GET", "/api/system-logs")
+    log5_text = json.dumps(logs5, ensure_ascii=False)
+    check("顺位人已接通" in log5_text, "子女30秒未接通 → 第二顺位第20秒接通 → 结案信号已发出")
 
     print(f"\n{'='*40}\n回归结果：{'全部通过 ✔' if FAIL == 0 else f'{FAIL} 项失败 ✘'}")
     sys.exit(1 if FAIL else 0)

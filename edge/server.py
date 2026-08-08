@@ -261,9 +261,9 @@ DEMO_SCENARIOS = [
     {"scenario": "demo_fall_still", "label": "疑似跌倒 · 确认无碍 · 解除警报（静止中跌倒）",
      "desc": "剧烈形变+呼吸急促两级确证成立→告警→呼唤测试进一步确认→回应「我没事」→解除警报恢复正常"},
     {"scenario": "demo_fall_moving", "label": "疑似跌倒 · 风险增加 · 进入救护链（运动中跌倒）",
-     "desc": "剧烈形变+呼吸紊乱（每轮随机：急促/节律紊乱/减弱骤减）确证成立→呼唤测试侦测到呼救→跳过一切等待直升危机进救护链"},
-    {"scenario": "demo_fall_noresponse", "label": "疑似跌倒 · 无回应 · 顺位联系 · 转120",
-     "desc": "剧烈形变+呼吸急促确证成立→告警→两轮呼唤（15s+10s）无回应→无呼救直升高危危机→救护链：通知子女→顺位联系→拨打120同步家庭地址"},
+     "desc": "剧烈形变+呼吸紊乱（每轮随机：急促/节律紊乱/减弱骤减）确证成立→第10秒侦测到呼救→跳过一切等待直升危机→救护链：子女第15秒接通→案件完结（留120快拨+已知晓收尾）"},
+    {"scenario": "demo_fall_noresponse", "label": "疑似跌倒 · 无回应 · 顺位联系 · 二顺位接通结案",
+     "desc": "剧烈形变+呼吸急促确证成立→告警→两轮呼唤（15s+10s）无回应→无呼救直升高危危机→救护链：子女30秒未接通→降级第二顺位·第20秒接通→案件完结（留120快拨+已知晓收尾）"},
 ]
 
 _mode_state = {"real_enabled": False, "demo_enabled": False, "demo_scenario": ""}
@@ -331,6 +331,8 @@ async def _run_demo(name: str) -> None:
             voice_session.reset()
             auto_fired = False
             voice_seen_wall = 0.0
+            crisis_wall = 0.0    # 进入危机的墙钟时刻（救护链自动接通计时起点）
+            rescue_fired = False
             await manager.broadcast({"kind": "demo_state_cleared", "data": {}})
             sim_t = 0.0
             for seg in segments:
@@ -344,6 +346,9 @@ async def _run_demo(name: str) -> None:
                     events = processor.process(ts, sim_t, intensity, zone, br_rate, br_st)
                     for ev in events:
                         await _handle_event(ev)
+                    # 危机起点记录：任一路径（呼救越级/两轮无应答/呼吸消失）进黑区后开始计救护链秒数
+                    if crisis_wall <= 0 and processor.guard_zone == ZONE_BLACK:
+                        crisis_wall = time.time()
                     # 剧本自动回应：呼唤测试进行中且到达剧本设定秒数 → 模拟老人开口
                     if auto_resp and not auto_fired and voice_session.is_active():
                         if voice_seen_wall <= 0:
@@ -353,6 +358,14 @@ async def _run_demo(name: str) -> None:
                             what = "「我没事」" if auto_resp["answer"] == "ok" else "呼救「救我…哎呀好疼」"
                             sys_log("info", f"侦测到老人回应{what}")
                             await _apply_voice_answer(auto_resp["answer"])
+                    # 剧本自动结案：救护链到达剧本设定秒数 → 模拟顺位人接通（前端据此冻结倒计时结案）
+                    rescue_at = scen.get("rescue_answer_at_s")
+                    if rescue_at and not rescue_fired and crisis_wall > 0 \
+                            and time.time() - crisis_wall >= float(rescue_at):
+                        rescue_fired = True
+                        sys_log("info", f"顺位人已接通（救护链第 {int(float(rescue_at))} 秒）· 案件完结")
+                        await manager.broadcast({"kind": "rescue_answered",
+                                                 "data": {"elapsed_s": int(float(rescue_at))}})
                     await manager.broadcast({
                         "kind": "sample",
                         "data": {"ts": ts, "sim_t": sim_t, "intensity": intensity,
@@ -886,9 +899,18 @@ async def api_voice_respond(answer: str = "ok"):
 async def _apply_voice_answer(answer: str) -> str:
     """应用一次语音回应（API 与演示剧本自动回应共用同一处置逻辑）。"""
     state = voice_session.respond(answer)
+    # 回应耗时：elapsed_s 靠 tick 驱动（当前无 tick 调用方，恒 0），
+    # 改用本轮开始时刻实际推算，保证「第 X 秒回应/侦测呼救」读秒真实
+    elapsed_s = int(voice_session.elapsed_s)
+    if voice_session.started_at:
+        try:
+            started = datetime.fromisoformat(voice_session.started_at)
+            elapsed_s = max(elapsed_s, int((datetime.now().astimezone() - started).total_seconds()))
+        except ValueError:
+            pass
     await manager.broadcast({"kind": "voice_responded",
                              "data": {"state": state, "answer": answer,
-                                      "elapsed_s": int(voice_session.elapsed_s)}})
+                                      "elapsed_s": elapsed_s}})
     if state == "ok":
         # 老人说没事 → 消警，重置到绿区（跌倒语义一并解除）
         processor._reset_to_green()

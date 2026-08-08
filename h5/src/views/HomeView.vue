@@ -295,6 +295,13 @@ const rescueDismissed = ref(false)   // 已知晓后收起完结栏
 watch(() => store.guardZone, (z) => {
   if (z < 4) { rescueClosedAt.value = 0; rescueDismissed.value = false }
 })
+/* 演示剧本自动结案：后端在剧本设定秒数广播顺位接通（真机接入后由通话系统发同款消息） */
+watch(() => store.rescueAnsweredSeq, () => {
+  if (store.rescueAnsweredS > 0 && rescueClosedAt.value === 0 && store.guardZone >= 4) {
+    rescueClosedAt.value = store.rescueAnsweredS
+    if (store.ackRequired && !store.alertAcked) void store.ackAlert()
+  }
+})
 
 /* 监控排查：平时不开，危机态下手动开启 */
 const monitorChecked = ref(false)
@@ -349,7 +356,8 @@ const respSteps = computed<RespStep[]>(() => {
     steps.push({ name: '通知子女 · 第一顺位', desc: 'APP 推送 + 短信送达 + 自动拨打电话', tag: '待执行', cls: 'todo' })
   } else if (chainS < RESCUE_CONTACT_S) {
     steps.push({ name: '通知子女 · 第一顺位',
-      desc: `正在拨打子女电话 · 等待接听 · 倒计时 ${RESCUE_CONTACT_S - chainS} 秒 · 接通即结案`,
+      desc: closed ? `子女第 ${chainS} 秒接通 · 案件完结`
+        : `正在拨打子女电话 · 等待接听 · 倒计时 ${RESCUE_CONTACT_S - chainS} 秒 · 接通即结案`,
       tag: closed ? '已接通 · 案件完结' : '拨打中', cls: closed ? 'done' : 'doing' })
   } else {
     steps.push({ name: '通知子女 · 第一顺位',
@@ -360,11 +368,15 @@ const respSteps = computed<RespStep[]>(() => {
     steps.push({ name: '顺位联系 · 第二/第三顺位', desc: '上一顺位倒计时结束未接通时自动降级，逐个联系附近关系人上门排查', tag: '待执行', cls: 'todo' })
   } else if (chainS < RESCUE_CONTACT_S * 2) {
     steps.push({ name: '顺位联系 · 第二顺位',
-      desc: `第一顺位 ${RESCUE_CONTACT_S} 秒未接通 · 正在联系第二顺位 · 倒计时 ${RESCUE_CONTACT_S * 2 - chainS} 秒`,
+      desc: closed
+        ? `第一顺位 ${RESCUE_CONTACT_S} 秒未接通 · 第二顺位第 ${chainS - RESCUE_CONTACT_S} 秒接通 · 案件完结`
+        : `第一顺位 ${RESCUE_CONTACT_S} 秒未接通 · 正在联系第二顺位 · 倒计时 ${RESCUE_CONTACT_S * 2 - chainS} 秒`,
       tag: closed ? '已接通 · 案件完结' : '拨打中', cls: closed ? 'done' : 'doing' })
   } else if (chainS < RESCUE_CONTACT_S * 3) {
     steps.push({ name: '顺位联系 · 第三顺位',
-      desc: `第二顺位 ${RESCUE_CONTACT_S} 秒未接通 · 正在联系第三顺位 · 倒计时 ${RESCUE_CONTACT_S * 3 - chainS} 秒`,
+      desc: closed
+        ? `第二顺位 ${RESCUE_CONTACT_S} 秒未接通 · 第三顺位第 ${chainS - RESCUE_CONTACT_S * 2} 秒接通 · 案件完结`
+        : `第二顺位 ${RESCUE_CONTACT_S} 秒未接通 · 正在联系第三顺位 · 倒计时 ${RESCUE_CONTACT_S * 3 - chainS} 秒`,
       tag: closed ? '已接通 · 案件完结' : '拨打中', cls: closed ? 'done' : 'doing' })
   } else {
     steps.push({ name: '顺位联系 · 第二/第三顺位',
@@ -390,9 +402,9 @@ const respSteps = computed<RespStep[]>(() => {
 const rescueCloseLabel = computed(() => {
   const s = rescueClosedAt.value
   if (s <= 0) return ''
-  if (s < RESCUE_CONTACT_S) return '第一顺位（子女）'
-  if (s < RESCUE_CONTACT_S * 2) return '第二顺位'
-  if (s < RESCUE_CONTACT_S * 3) return '第三顺位'
+  if (s < RESCUE_CONTACT_S) return `第一顺位（子女）· 第 ${s} 秒接通`
+  if (s < RESCUE_CONTACT_S * 2) return `第二顺位 · 第 ${s - RESCUE_CONTACT_S} 秒接通`
+  if (s < RESCUE_CONTACT_S * 3) return `第三顺位 · 第 ${s - RESCUE_CONTACT_S * 2} 秒接通`
   return '120 急救中心'
 })
 /** 顺位人接通（与语音面板回应按钮同位的模拟入口）→ 冻结倒计时、案件完结，顺手停掉二轮报警响铃 */
@@ -410,7 +422,7 @@ const crisisSummary = computed(() => {
     prefix = `案情小结：双证据成立 → ${store.voicePrevElapsedS || store.voiceTimeoutS} 秒无回应 → 再等 ${store.voiceTimeoutS} 秒仍无回应 · 直升高危危机`
   else return ''
   if (rescueClosedAt.value > 0)
-    return `${prefix} → ${rescueCloseLabel.value}已接通 · 案件完结（救护链共 ${rescueClosedAt.value} 秒）`
+    return `${prefix} → ${rescueCloseLabel.value} · 案件完结（救护链共 ${rescueClosedAt.value} 秒）`
   const s = crisisElapsed.value
   const stage = s < RESCUE_CONTACT_S
     ? `通知子女中 · 倒计时 ${RESCUE_CONTACT_S - s} 秒`
@@ -867,7 +879,7 @@ const breathNow = computed(() => {
       <div class="case-summary" v-if="crisisSummary">📋 {{ crisisSummary }}</div>
       <!-- 案件完结：某顺位接通 → 冻结倒计时，留 120 快拨 + 已知晓 -->
       <div class="rescue-close" v-if="rescueClosedAt > 0 && !rescueDismissed">
-        <div class="rescue-close-title">✅ 案件完结 · {{ rescueCloseLabel }}已接通 · 救护链终止</div>
+        <div class="rescue-close-title">✅ 案件完结 · {{ rescueCloseLabel }} · 救护链终止</div>
         <div class="rescue-close-note">已预留 120 快拨服务（以备万一） · 点「已知晓」为本案收尾</div>
         <div class="resp-btns">
           <button class="btn danger" @click="handleAlertCall120">🚑 120 快拨</button>

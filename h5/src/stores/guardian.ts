@@ -141,6 +141,9 @@ export const useGuardianStore = defineStore('guardian', () => {
   const voicePrevElapsedS = ref(0)
   /** 最近一次回应耗时（秒）：多久回话/多久侦测到呼救 */
   const voiceRespondedElapsedS = ref(0)
+  /** 顺位接通信号（秒）：演示剧本自动结案广播携带；0=无；递增序号用 seq 区分多次 */
+  const rescueAnsweredS = ref(0)
+  const rescueAnsweredSeq = ref(0)
   /** 第二轮报警响铃状态：ack_required 告警到达→响铃，已知晓→停 */
   const ackRequired = ref(false)
   const alertAcked = ref(false)
@@ -294,6 +297,7 @@ export const useGuardianStore = defineStore('guardian', () => {
     voiceRoundStartTs.value = 0
     voicePrevElapsedS.value = 0
     voiceRespondedElapsedS.value = 0
+    rescueAnsweredS.value = 0
     alertAcked.value = false
     lastClearedReason.value = ''
     stopRingLoop()
@@ -365,6 +369,11 @@ export const useGuardianStore = defineStore('guardian', () => {
       case 'alert_acked':
         alertAcked.value = true
         stopRingLoop()
+        break
+      case 'rescue_answered':
+        // 演示剧本自动结案：顺位人接通（携带救护链总秒数）；真机接入后由通话系统发同款消息
+        if (typeof msg.data.elapsed_s === 'number') rescueAnsweredS.value = msg.data.elapsed_s
+        rescueAnsweredSeq.value += 1
         break
       case 'reset':
         events.value = []
@@ -577,6 +586,7 @@ export const useGuardianStore = defineStore('guardian', () => {
     semanticState, breathingBandMax, profileAdjustments,
     events, alerts, profile, voiceConfirmState, refreshing,
     voiceRound, voiceTimeoutS, voiceRoundStartTs, voicePrevElapsedS, voiceRespondedElapsedS,
+    rescueAnsweredS, rescueAnsweredSeq,
     ackRequired, alertAcked, lastClearedReason, clearedSeq,
     offline, lastSampleTime, deviceState, deviceStatus, diagnosis,
     autoChecking, autoCheckResult,

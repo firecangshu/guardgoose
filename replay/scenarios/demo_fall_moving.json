@@ -1,9 +1,10 @@
 {
   "name": "疑似跌倒 · 风险增加 · 进入救护链（运动中跌倒）",
   "zone": "living",
-  "description": "完整故事：老人均速走动 → 突然跌倒，剧烈形变 → 呼吸紊乱（每轮随机演示一种：呼吸急促/节律紊乱/减弱骤减，均有医学背书），两级确证成立，立即告警 → 呼唤测试中侦测到老人呼救「救我·哎呀好疼」，跳过一切等待，直接越级危机 → 进入救护链：通知子女、顺位联系，联系不上自动拨打 120 并同步家庭地址。展示『侦测到呼救，系统秒级兜底升级』。",
+  "description": "完整故事：老人均速走动 → 突然跌倒，剧烈形变 → 呼吸紊乱（每轮随机演示一种：呼吸急促/节律紊乱/减弱骤减，均有医学背书），两级确证成立，立即告警 → 呼唤测试第 10 秒侦测到老人呼救「救我·哎呀好疼」，跳过一切等待，直接越级危机 → 进入救护链：通知子女（第一顺位），子女第 15 秒接通 → 案件完结，留 120 快拨与已知晓收尾。展示『侦测到呼救，系统秒级兜底升级』。",
   "speed": 1,
-  "auto_respond": { "answer": "help", "after_voice_s": 8 },
+  "auto_respond": { "answer": "help", "after_voice_s": 10 },
+  "rescue_answer_at_s": 15,
   "random_breathing": {
     "elevated": [22, 26],
     "irregular": [9, 11],
@@ -13,7 +14,7 @@
     { "label": "老人在屋里匀速走动", "duration_s": 12, "pattern": "active", "low": 0.35, "high": 0.55, "br_low": 14, "br_high": 17 },
     { "label": "突然跌倒（剧烈形变）", "duration_s": 3, "pattern": "spike", "low": 0.95, "high": 1.0, "br_low": 16, "br_high": 20 },
     { "label": "倒地不起 · {呼吸紊乱} · 两级确证成立 · 告警 · 呼唤测试", "duration_s": 12, "pattern": "still", "low": 0.02, "high": 0.045, "br_state": "random" },
-    { "label": "进一步确认：侦测到呼救「救我…哎呀好疼」· 跳过一切等待 · 直接越级危机", "duration_s": 8, "pattern": "still", "low": 0.02, "high": 0.045, "br_state": "random" },
-    { "label": "进入救护链 · 通知子女 → 顺位联系 → 拨打120 · 同步家庭地址", "duration_s": 18, "pattern": "still", "low": 0.02, "high": 0.045, "br_state": "random" }
+    { "label": "进一步确认：第 10 秒侦测到呼救「救我…哎呀好疼」· 跳过一切等待 · 直接越级危机", "duration_s": 8, "pattern": "still", "low": 0.02, "high": 0.045, "br_state": "random" },
+    { "label": "进入救护链 · 通知子女（第一顺位）· 子女第 15 秒接通 · 案件完结", "duration_s": 22, "pattern": "still", "low": 0.02, "high": 0.045, "br_state": "random" }
   ]
 }
