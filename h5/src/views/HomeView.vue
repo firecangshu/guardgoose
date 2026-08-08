@@ -491,15 +491,6 @@ watch(() => [store.demoScenario, store.monitoringLive] as const, () => {
 onUnmounted(() => { if (clearedTimer) clearTimeout(clearedTimer) })
 const showRespCard = computed(() => respActive.value && store.monitoringLive)
 
-/* 确证回应（含「检测到呻吟」等价 help 入口） */
-async function onVoiceRespond(answer: 'ok' | 'help') {
-  try {
-    await api.voiceRespond(answer)
-  } catch {
-    showToast('回应提交失败，请重试')
-  }
-}
-
 /* 家人已知晓：停止第二轮报警响铃 */
 async function onAck() {
   await store.ackAlert()
@@ -904,27 +895,18 @@ const breathNow = computed(() => {
       <div class="cleared-line note">全过程已在事件库留痕，可随时查看</div>
     </div>
 
-    <!-- 语音确证面板：双证据线成立后发起（节奏随档案） -->
-    <van-cell-group inset class="section" v-if="store.monitoringLive && store.voiceConfirmState">
-      <van-cell title="语音确证" center>
+    <!-- 语音确证面板：双证据成立后自动发起，AI 收音识别老人回应并反馈中枢综合判定。
+         只在确证链进行中（等待回应且未进危机）显示，一出结果即收起；
+         界面无任何模拟按钮，真机由语音模块将识别结果接入 /api/voice-answer -->
+    <van-cell-group inset class="section" v-if="store.monitoringLive && store.voiceConfirmState === 'waiting' && store.guardZone < 4">
+      <van-cell title="语音确证 · AI 识别" center>
         <template #icon>
           <van-icon name="volume-o" color="#ff9f00" style="margin-right:8px" />
         </template>
       </van-cell>
       <div class="voice-panel">
-        <p v-if="store.voiceConfirmState === 'waiting' && store.guardZone >= 4" style="color:#dc2626">两轮询问均无回应 · 已直升高危危机 · 救护链启动</p>
-        <p v-else-if="store.voiceConfirmState === 'waiting'">
-          <template v-if="store.voiceRound === 2">已提升告警级别并再次询问（第 2 轮），报警响铃中...</template>
-          <template v-else>已发起语音确认“您还好吗？”（第 1 轮），等待老人回应...</template>
-        </p>
-        <p v-else-if="store.voiceConfirmState === 'ok'" style="color:#16a34a">老人第 {{ store.voiceRespondedElapsedS }} 秒回应「没事」，警报解除</p>
-        <p v-else-if="store.voiceConfirmState === 'help'" style="color:#dc2626">第 {{ store.voiceRespondedElapsedS }} 秒侦测到呼救（或呻吟） · 跳过一切等待 · 已直升危机</p>
-        <p v-else>等待语音确认...</p>
-        <div v-if="store.voiceConfirmState === 'waiting'" class="voice-btns">
-          <button class="vbtn ok" @click="onVoiceRespond('ok')">回应「没事」</button>
-          <button class="vbtn help" @click="onVoiceRespond('help')">回应「救我」</button>
-          <button class="vbtn help" @click="onVoiceRespond('help')">检测到呻吟</button>
-        </div>
+        <p v-if="store.voiceRound === 2">第 1 轮未识别到回应 · 已提升告警级别并再次呼唤 · AI 持续收音识别中…</p>
+        <p v-else>已发起现场呼唤“您还好吗？” · AI 收音识别老人回应中，识别结果将反馈中枢综合判定…</p>
       </div>
     </van-cell-group>
 
@@ -1180,13 +1162,6 @@ canvas { display: block; width: 100%; }
 .section { margin-top: 10px; }
 .voice-panel { padding: 4px 16px 12px; font-size: 13px; color: #1f2937; }
 .voice-panel p { margin: 0; }
-.voice-btns { display: flex; gap: 8px; margin-top: 10px; }
-.vbtn {
-  flex: 1; padding: 9px 0; border-radius: 10px; border: none;
-  font-size: 12px; font-weight: 700;
-}
-.vbtn.ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-.vbtn.help { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 
 /* ---- 折叠详情 ---- */
 .detail-collapse { margin-top: 10px; }
