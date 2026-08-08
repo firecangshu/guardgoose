@@ -136,8 +136,10 @@ async def _handle_event(ev: Event) -> None:
         await manager.broadcast({"kind": "voice_confirm", "data": voice_data})
     # 第一轮无回应 → 第二轮询问：重播语音 + 生成「确证中」告警（ack_required）
     elif ev.type == EVT_VOICE_REQUERY:
+        prev_elapsed_s = int(voice_session.elapsed_s)  # 第一轮实际等待秒数（start 会清零）
         voice_session.timeout_s = processor._requery_wait_s
-        voice_data = {**voice_session.start(), "round": 2}
+        voice_data = {**voice_session.start(), "round": 2,
+                      "prev_elapsed_s": prev_elapsed_s}
         await manager.broadcast({"kind": "voice_confirm", "data": voice_data})
         requery_alert = {
             "alert_id": f"alt_{ev.event_id[-8:]}",
@@ -884,7 +886,9 @@ async def api_voice_respond(answer: str = "ok"):
 async def _apply_voice_answer(answer: str) -> str:
     """应用一次语音回应（API 与演示剧本自动回应共用同一处置逻辑）。"""
     state = voice_session.respond(answer)
-    await manager.broadcast({"kind": "voice_responded", "data": {"state": state, "answer": answer}})
+    await manager.broadcast({"kind": "voice_responded",
+                             "data": {"state": state, "answer": answer,
+                                      "elapsed_s": int(voice_session.elapsed_s)}})
     if state == "ok":
         # 老人说没事 → 消警，重置到绿区（跌倒语义一并解除）
         processor._reset_to_green()

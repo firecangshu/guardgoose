@@ -135,6 +135,12 @@ export const useGuardianStore = defineStore('guardian', () => {
   const voiceRound = ref(0)
   /** 当前轮次等待时长（秒，随档案：第一轮 voice_timeout / 第二轮 requery_wait_s） */
   const voiceTimeoutS = ref(15)
+  /** 当前轮次开始时刻（本地 ms，前端逐秒倒计时用） */
+  const voiceRoundStartTs = ref(0)
+  /** 上一轮实际等待秒数（第二轮广播携带；危机后复盘读秒用） */
+  const voicePrevElapsedS = ref(0)
+  /** 最近一次回应耗时（秒）：多久回话/多久侦测到呼救 */
+  const voiceRespondedElapsedS = ref(0)
   /** 第二轮报警响铃状态：ack_required 告警到达→响铃，已知晓→停 */
   const ackRequired = ref(false)
   const alertAcked = ref(false)
@@ -285,6 +291,9 @@ export const useGuardianStore = defineStore('guardian', () => {
     semanticState.value = ''
     voiceConfirmState.value = ''
     voiceRound.value = 0
+    voiceRoundStartTs.value = 0
+    voicePrevElapsedS.value = 0
+    voiceRespondedElapsedS.value = 0
     alertAcked.value = false
     lastClearedReason.value = ''
     stopRingLoop()
@@ -325,11 +334,21 @@ export const useGuardianStore = defineStore('guardian', () => {
       case 'voice_confirm':
         voiceConfirmState.value = 'waiting'
         voiceRound.value = msg.data.round || 1
+        voiceRoundStartTs.value = Date.now()
+        if ((msg.data.round || 1) === 1) {
+          // 新一轮确证链开始，上一链读秒清零
+          voicePrevElapsedS.value = 0
+          voiceRespondedElapsedS.value = 0
+        } else if (typeof msg.data.prev_elapsed_s === 'number') {
+          // 第二轮广播携带第一轮实际等待秒数（后端在 start 清零前抓取）
+          voicePrevElapsedS.value = msg.data.prev_elapsed_s
+        }
         if (typeof msg.data.timeout_s === 'number') voiceTimeoutS.value = msg.data.timeout_s
         break
       case 'voice_responded':
         voiceConfirmState.value = msg.data.state
         voiceRound.value = 0   // 有回应即确证链终止（解除/升级）
+        if (typeof msg.data.elapsed_s === 'number') voiceRespondedElapsedS.value = msg.data.elapsed_s
         break
       case 'alert_cleared':
         voiceConfirmState.value = ''
@@ -557,7 +576,8 @@ export const useGuardianStore = defineStore('guardian', () => {
     intensity, breathingRate, breathingState, intensityHistory, breathHistory,
     semanticState, breathingBandMax, profileAdjustments,
     events, alerts, profile, voiceConfirmState, refreshing,
-    voiceRound, voiceTimeoutS, ackRequired, alertAcked, lastClearedReason, clearedSeq,
+    voiceRound, voiceTimeoutS, voiceRoundStartTs, voicePrevElapsedS, voiceRespondedElapsedS,
+    ackRequired, alertAcked, lastClearedReason, clearedSeq,
     offline, lastSampleTime, deviceState, deviceStatus, diagnosis,
     autoChecking, autoCheckResult,
     realEnabled, demoEnabled, demoScenario, demoScenarios, demoTransition, demoTransLost,

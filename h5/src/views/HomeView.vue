@@ -278,6 +278,13 @@ watch(() => store.guardZone, (z) => {
 const crisisElapsed = computed(() => crisisSince.value
   ? Math.floor((nowTs.value - crisisSince.value) / 1000) : 0)
 
+/* 确证等待逐秒倒计时：本轮总时长 − 已过秒数（随 nowTs 每秒刷新） */
+const voiceWaitLeft = computed(() => {
+  if (store.voiceConfirmState !== 'waiting' || !store.voiceRoundStartTs) return 0
+  const used = Math.floor((nowTs.value - store.voiceRoundStartTs) / 1000)
+  return Math.max(0, store.voiceTimeoutS - used)
+})
+
 /* 监控排查：平时不开，危机态下手动开启 */
 const monitorChecked = ref(false)
 watch(() => store.guardZone, (z) => { if (z <= 0) monitorChecked.value = false })
@@ -300,25 +307,25 @@ const respSteps = computed<RespStep[]>(() => {
   if (adj.skip_voice) {
     steps.push({ name: '语音唤醒询问', desc: '档案含心脑血管病史 · 跳过语音直接升级，避免延误', tag: '已按档案跳过', cls: 'skip' })
   } else if (vc === 'ok') {
-    steps.push({ name: '语音唤醒询问', desc: '老人回应「没事」，告警解除，事件库留痕', tag: '回应正常 · 已解除', cls: 'done' })
+    steps.push({ name: '语音唤醒询问', desc: `老人第 ${store.voiceRespondedElapsedS} 秒回应「没事」 · 警报解除 · 事件库留痕`, tag: '回应正常 · 已解除', cls: 'done' })
   } else if (vc === 'help') {
-    steps.push({ name: '语音唤醒询问', desc: '侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机', tag: '已求助 · 直升危机', cls: 'done' })
+    steps.push({ name: '语音唤醒询问', desc: `第 ${store.voiceRespondedElapsedS} 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机`, tag: '已求助 · 直升危机', cls: 'done' })
   } else if (vc === 'waiting' && round === 1) {
-    steps.push({ name: '语音唤醒询问', desc: `设备播放「您还好吗？」，等待回应（${store.voiceTimeoutS} 秒）`, tag: '进行中', cls: 'doing' })
+    steps.push({ name: '语音唤醒询问', desc: `设备播放「您还好吗？」 · 等待回应 · 倒计时 ${voiceWaitLeft.value} 秒`, tag: '进行中', cls: 'doing' })
   } else if (round >= 2 || z >= 4) {
-    steps.push({ name: '语音唤醒询问', desc: '第 1 轮询问超时，老人无回应', tag: '无人应答', cls: 'done' })
+    steps.push({ name: '语音唤醒询问', desc: `${store.voicePrevElapsedS || store.voiceTimeoutS} 秒无回应 · 提升预警级别 · 进入第二轮询问`, tag: '无人应答', cls: 'done' })
   } else {
     steps.push({ name: '语音唤醒询问', desc: '双证据线成立后自动发起', tag: '待执行', cls: 'todo' })
   }
   // 3 提升级别 · 再次询问 + 报警通知（第 2 轮，等待时长随档案）
   if (vc === 'ok' || vc === 'help') {
     steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '老人已回应，无需第 2 轮', tag: '未触发', cls: 'todo' })
+  } else if (z >= 4) {
+    steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: `再等 ${store.voiceTimeoutS} 秒仍无回应 · 直升高危危机 · 进入救护链`, tag: '直升高危', cls: 'done' })
   } else if (round === 2 && vc === 'waiting') {
     steps.push({ name: '提升级别 · 再次询问 + 报警通知',
-      desc: `倒计时 ${store.voiceTimeoutS} 秒 · ${store.alertAcked ? '家人已知晓' : '报警响铃中，响至家人知晓'}`,
+      desc: `第 1 轮 ${store.voicePrevElapsedS || 15} 秒无回应 · 倒计时 ${voiceWaitLeft.value} 秒 · ${store.alertAcked ? '家人已知晓' : '报警响铃中，响至家人知晓'}`,
       tag: store.alertAcked ? '已知晓' : '响铃中', cls: 'doing' })
-  } else if (z >= 4) {
-    steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '第 2 轮仍无人应答，进入危机状态', tag: '仍无人应答', cls: 'done' })
   } else {
     steps.push({ name: '提升级别 · 再次询问 + 报警通知', desc: '第 1 轮无回应时自动启动，等待时长随档案', tag: '待执行', cls: 'todo' })
   }
@@ -339,6 +346,22 @@ const respSteps = computed<RespStep[]>(() => {
     : { name: '监控排查', desc: '平时不开 · 危机时可手动开启', tag: z >= 4 ? '可开启' : '待执行',
         cls: z >= 4 ? 'doing' : 'todo', action: z >= 4 ? '开启监控排查' : '' })
   return steps
+})
+
+/* ---- 案情小结：危机链实际读秒复盘（随救护链进度每秒更新） ---- */
+const crisisStage = computed(() => {
+  if (crisisElapsed.value >= 20) return '已拨打 120 · 家庭地址已同步'
+  if (crisisElapsed.value >= 12) return '顺位联系中（第二/第三顺位）'
+  if (crisisElapsed.value >= 6) return '准备拨打 120 · 同步家庭地址'
+  return '通知子女中 · 第一顺位'
+})
+const crisisSummary = computed(() => {
+  const vc = store.voiceConfirmState
+  if (vc === 'help')
+    return `案情小结：双证据成立 → 第 ${store.voiceRespondedElapsedS} 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机 → 救护链已启动 ${crisisElapsed.value} 秒 · ${crisisStage.value}`
+  if (store.guardZone >= 4)
+    return `案情小结：双证据成立 → ${store.voicePrevElapsedS || store.voiceTimeoutS} 秒无回应 → 再等 ${store.voiceTimeoutS} 秒仍无回应 · 直升高危危机 → 救护链已启动 ${crisisElapsed.value} 秒 · ${crisisStage.value}`
+  return ''
 })
 
 /* ---- 告警链中的呼吸持续监测（巩固信息，趋势文案） ---- */
@@ -363,7 +386,7 @@ const breathTrend = computed(() => {
 /* ---- 告警卡显示与解除小结（解除不瞬消，保留 30 秒后淡出） ---- */
 const respActive = ref(false)
 const alertStartTs = ref(0)
-const clearedInfo = ref<{ reason: string; durS: number; br: number } | null>(null)
+const clearedInfo = ref<{ reason: string; durS: number; br: number; respondS: number } | null>(null)
 let clearedTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(() => store.latestAlert, (a) => {
@@ -383,6 +406,7 @@ watch(() => store.clearedSeq, () => {
     reason: store.lastClearedReason,
     durS: Math.max(1, Math.round((Date.now() - alertStartTs.value) / 1000)),
     br: store.breathingRate,
+    respondS: store.voiceRespondedElapsedS,   // 确证读秒：多久回话解除（运动自解除为 0）
   }
   if (clearedTimer) clearTimeout(clearedTimer)
   clearedTimer = setTimeout(() => { clearedInfo.value = null }, 30000)
@@ -779,6 +803,8 @@ const breathNow = computed(() => {
           <button v-if="st.action" class="step-action" @click="onMonitorCheck">📹 {{ st.action }}</button>
         </div>
       </div>
+      <!-- 案情小结：危机链实际读秒复盘，随救护链进度实时更新 -->
+      <div class="case-summary" v-if="crisisSummary">📋 {{ crisisSummary }}</div>
       <!-- 第二轮报警：响铃直到家人知晓 -->
       <button v-if="store.ackRequired && !store.alertAcked" class="btn ack" @click="onAck">🔔 报警中 · 点我确认已知晓</button>
       <div class="resp-btns">
@@ -791,6 +817,7 @@ const breathNow = computed(() => {
     <div class="resp cleared-card" v-else-if="clearedInfo">
       <div class="resp-title ok">✅ 告警已解除</div>
       <div class="cleared-line">解除原因：{{ clearedInfo.reason || '告警已解除' }}</div>
+      <div class="cleared-line" v-if="clearedInfo.respondS > 0">确证读秒：语音询问后 {{ clearedInfo.respondS }} 秒老人回应 → 警报解除</div>
       <div class="cleared-line">持续时长：{{ clearedInfo.durS }} 秒 · 最新呼吸：{{ clearedInfo.br > 0 ? `${clearedInfo.br} 次/分` : '暂未测到' }}</div>
       <div class="cleared-line note">全过程已在事件库留痕，可随时查看</div>
     </div>
@@ -803,12 +830,13 @@ const breathNow = computed(() => {
         </template>
       </van-cell>
       <div class="voice-panel">
-        <p v-if="store.voiceConfirmState === 'waiting'">
-          <template v-if="store.voiceRound === 2">已提升告警级别并再次询问（第 2 轮 · {{ store.voiceTimeoutS }}s），报警响铃中...</template>
-          <template v-else>已发起语音确认“您还好吗？”（第 1 轮 · {{ store.voiceTimeoutS }}s），等待老人回应...</template>
+        <p v-if="store.voiceConfirmState === 'waiting' && store.guardZone >= 4" style="color:#dc2626">两轮询问均无回应 · 已直升高危危机 · 救护链启动</p>
+        <p v-else-if="store.voiceConfirmState === 'waiting'">
+          <template v-if="store.voiceRound === 2">已提升告警级别并再次询问（第 2 轮），报警响铃中...</template>
+          <template v-else>已发起语音确认“您还好吗？”（第 1 轮），等待老人回应...</template>
         </p>
-        <p v-else-if="store.voiceConfirmState === 'ok'" style="color:#16a34a">老人回应「没事」，告警解除</p>
-        <p v-else-if="store.voiceConfirmState === 'help'" style="color:#dc2626">老人求助（或检测到呻吟）！已升级告警，呼吸持续监测中</p>
+        <p v-else-if="store.voiceConfirmState === 'ok'" style="color:#16a34a">老人第 {{ store.voiceRespondedElapsedS }} 秒回应「没事」，警报解除</p>
+        <p v-else-if="store.voiceConfirmState === 'help'" style="color:#dc2626">第 {{ store.voiceRespondedElapsedS }} 秒侦测到呼救（或呻吟） · 跳过一切等待 · 已直升危机</p>
         <p v-else>等待语音确认...</p>
         <div v-if="store.voiceConfirmState === 'waiting'" class="voice-btns">
           <button class="vbtn ok" @click="onVoiceRespond('ok')">回应「没事」</button>
@@ -1036,6 +1064,12 @@ const breathNow = computed(() => {
 .resp-title.ok { color: #16a34a; }
 .cleared-line { font-size: 12px; color: #374151; line-height: 1.8; }
 .cleared-line.note { color: #9ca3af; margin-top: 4px; }
+/* 案情小结：危机链实际读秒复盘（随救护链进度每秒更新） */
+.case-summary {
+  margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+  background: #fff; border: 1px dashed #fca5a5;
+  font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
+}
 
 /* ---- 数据表 ---- */
 .chart-card {
