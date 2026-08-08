@@ -875,11 +875,10 @@ const breathNow = computed(() => {
           <button v-if="st.action" class="step-action" @click="onMonitorCheck">📹 {{ st.action }}</button>
         </div>
       </div>
-      <!-- 案情小结：危机链实际读秒复盘，随救护链进度实时更新 -->
-      <div class="case-summary" v-if="crisisSummary">📋 {{ crisisSummary }}</div>
-      <!-- 案件完结：某顺位接通 → 冻结倒计时，留 120 快拨 + 已知晓 -->
+      <!-- 案件完结：某顺位接通 → 冻结倒计时，留 120 快拨 + 已知晓；案情小结结案后才展示（避免演出中剧透） -->
       <div class="rescue-close" v-if="rescueClosedAt > 0 && !rescueDismissed">
         <div class="rescue-close-title">✅ 案件完结 · {{ rescueCloseLabel }} · 救护链终止</div>
+        <div class="case-summary">📋 {{ crisisSummary }}</div>
         <div class="rescue-close-note">已预留 120 快拨服务（以备万一） · 点「已知晓」为本案收尾</div>
         <div class="resp-btns">
           <button class="btn danger" @click="handleAlertCall120">🚑 120 快拨</button>
@@ -1147,9 +1146,9 @@ const breathNow = computed(() => {
 .resp-title.ok { color: #16a34a; }
 .cleared-line { font-size: 12px; color: #374151; line-height: 1.8; }
 .cleared-line.note { color: #9ca3af; margin-top: 4px; }
-/* 案情小结：危机链实际读秒复盘（随救护链进度每秒更新） */
+/* 案情小结：结案后展示的危机链实际读秒复盘（演出中不出现，避免剧透） */
 .case-summary {
-  margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+  margin-top: 8px; padding: 10px 12px; border-radius: 12px;
   background: #fff; border: 1px dashed #fca5a5;
   font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
 }
