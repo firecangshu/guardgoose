@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件完结栏 · 120 冗余去重设计方案</title>
+<style>
+  body {
+    margin: 0;
+    background: #e9ebf0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 24px 12px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 20px; color: #1d2129; text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; font-size: 13px; color: #86909c; margin-bottom: 20px; }
+  .cols { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .col { width: 390px; }
+  .col-title {
+    font-size: 14px; font-weight: 700; text-align: center;
+    margin-bottom: 8px; padding: 6px; border-radius: 8px;
+  }
+  .col-cur .col-title { background: #fee2e2; color: #b91c1c; }
+  .col-a .col-title { background: #dcfce7; color: #15803d; }
+  .col-b .col-title { background: #e0f2fe; color: #0369a1; }
+  .col-c .col-title { background: #fef3c7; color: #b45309; }
+  .phone {
+    background: #fff; border-radius: 20px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.12);
+    padding: 14px; overflow: hidden;
+  }
+  .note {
+    font-size: 12px; color: #4b5563; line-height: 1.8;
+    background: #fff; border-radius: 12px; padding: 12px 14px; margin-top: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .note b { color: #16a34a; }
+  .note .bad { color: #dc2626; font-weight: 700; }
+
+  /* ---- 复刻应用内样式 ---- */
+  .resp {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 14px;
+    padding: 12px;
+  }
+  .resp-title { font-size: 14px; font-weight: 800; color: #b91c1c; margin-bottom: 8px; }
+  .step { display: flex; gap: 8px; padding: 5px 0; }
+  .step-dot {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+    font-size: 11px; display: flex; align-items: center; justify-content: center;
+  }
+  .step-dot.done { background: #dc2626; color: #fff; }
+  .step-dot.todo { background: #fff; border: 1px solid #fca5a5; color: #fca5a5; }
+  .step-name { font-size: 13px; font-weight: 700; color: #1f2937; }
+  .step-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 6px; margin-left: 4px;
+    background: #fee2e2; color: #b91c1c; font-weight: 600;
+  }
+  .step-tag.todo { background: #f3f4f6; color: #9ca3af; }
+  .step-desc { font-size: 11.5px; color: #6b7280; line-height: 1.6; }
+  .rescue-close {
+    margin-top: 10px; padding: 12px; border-radius: 12px;
+    background: #f0fdf4; border: 1px solid #86efac;
+  }
+  .rescue-close-title { font-size: 13px; font-weight: 800; color: #16a34a; }
+  .case-summary {
+    margin-top: 8px; padding: 10px 12px; border-radius: 12px;
+    background: #fff; border: 1px dashed #fca5a5;
+    font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
+  }
+  .rescue-close-note { font-size: 12px; color: #6b7280; margin: 6px 0 4px; }
+  .resp-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .btn {
+    flex: 1; padding: 11px 0; border-radius: 12px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn.primary { background: #dc2626; color: #fff; }
+  .btn.danger { background: #b91c1c; color: #fff; }
+  .btn.ghost { background: #f3f4f6; color: #374151; }
+  .hl { outline: 2px dashed #dc2626; outline-offset: 2px; border-radius: 12px; }
+  .gone {
+    margin-top: 10px; padding: 9px; border-radius: 12px; text-align: center;
+    font-size: 11.5px; color: #9ca3af; background: #f9fafb; border: 1px dashed #e5e7eb;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>案件完结栏 · 「120」出现两次去重方案</h1>
+  <div class="sub">左侧为现状（红框=冗余点），右侧三个方案选一个</div>
+  <div class="cols">
+
+    <!-- 现状 -->
+    <div class="col col-cur">
+      <div class="col-title">现状：两个 120 同屏</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="step"><div class="step-dot done">✓</div><div><div class="step-name">通知子女 · 第一顺位 <span class="step-tag">已接通 · 案件完结</span></div><div class="step-desc">子女第 15 秒接通 · 案件完结</div></div></div>
+          <div class="step"><div class="step-dot todo">○</div><div><div class="step-name">顺位联系 · 第二/第三顺位 <span class="step-tag todo">待执行</span></div><div class="step-desc">上一顺位倒计时结束未接通时自动降级</div></div></div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary">📋 案情小结：双证据成立 → 第 11 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机 → 第一顺位（子女）· 第 15 秒接通 · 案件完结（救护链共 15 秒）</div>
+            <div class="rescue-close-note">已预留 120 快拨服务（以备万一） · 点「已知晓」为本案收尾</div>
+            <div class="resp-btns hl">
+              <button class="btn danger">🚑 120 快拨</button>
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+          <div class="resp-btns hl">
+            <button class="btn primary">📞 紧急联系</button>
+            <button class="btn danger">🚑 拨打120</button>
+            <button class="btn ghost">已确认/误报</button>
+          </div>
+        </div>
+      </div>
+      <div class="note"><span class="bad">问题：</span>案件已完结（家人已接通），底部「紧急联系/拨打120/已确认误报」整行还在，与完结栏的「120 快拨」功能完全重复。</div>
+    </div>
+
+    <!-- 方案 A -->
+    <div class="col col-a">
+      <div class="col-title">方案 A（推荐）：结案即收工，底部行隐藏</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="step"><div class="step-dot done">✓</div><div><div class="step-name">通知子女 · 第一顺位 <span class="step-tag">已接通 · 案件完结</span></div><div class="step-desc">子女第 15 秒接通 · 案件完结</div></div></div>
+          <div class="step"><div class="step-dot todo">○</div><div><div class="step-name">顺位联系 · 第二/第三顺位 <span class="step-tag todo">待执行</span></div><div class="step-desc">上一顺位倒计时结束未接通时自动降级</div></div></div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary">📋 案情小结：双证据成立 → 第 11 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机 → 第一顺位（子女）· 第 15 秒接通 · 案件完结（救护链共 15 秒）</div>
+            <div class="rescue-close-note">如仍需呼叫急救，下方快拨已备好 · 点「已知晓」为本案收尾</div>
+            <div class="resp-btns">
+              <button class="btn danger">🚑 120 快拨</button>
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+          <div class="gone">底部「紧急联系 / 拨打120 / 已确认误报」结案后自动收起（案情未结时照常显示）</div>
+        </div>
+      </div>
+      <div class="note"><b>改动：</b>结案后隐藏底部按钮行，120 只剩完结栏一处。逻辑上也说得通——家人已接通，「紧急联系」「误报」已无意义；万一家人到场发现仍需急救，「120 快拨」还在。<b>改动最小、语义最干净。</b></div>
+    </div>
+
+    <!-- 方案 B -->
+    <div class="col col-b">
+      <div class="col-title">方案 B：完结栏只收尾，120 留底部</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="step"><div class="step-dot done">✓</div><div><div class="step-name">通知子女 · 第一顺位 <span class="step-tag">已接通 · 案件完结</span></div><div class="step-desc">子女第 15 秒接通 · 案件完结</div></div></div>
+          <div class="step"><div class="step-dot todo">○</div><div><div class="step-name">顺位联系 · 第二/第三顺位 <span class="step-tag todo">待执行</span></div><div class="step-desc">上一顺位倒计时结束未接通时自动降级</div></div></div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary">📋 案情小结：双证据成立 → 第 11 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机 → 第一顺位（子女）· 第 15 秒接通 · 案件完结（救护链共 15 秒）</div>
+            <div class="resp-btns">
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+          <div class="resp-btns">
+            <button class="btn primary">📞 紧急联系</button>
+            <button class="btn danger">🚑 拨打120</button>
+            <button class="btn ghost">已确认/误报</button>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>改动：</b>完结栏删掉「120 快拨」按钮和提示语，只留「已知晓 · 收尾」；120 统一用底部的「拨打120」。取舍：完结后底部仍挂着「紧急联系/误报」等已无意义的按钮，视觉上仍偏重。</div>
+    </div>
+
+    <!-- 方案 C -->
+    <div class="col col-c">
+      <div class="col-title">方案 C：底部行结案后降级变灰</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="step"><div class="step-dot done">✓</div><div><div class="step-name">通知子女 · 第一顺位 <span class="step-tag">已接通 · 案件完结</span></div><div class="step-desc">子女第 15 秒接通 · 案件完结</div></div></div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary">📋 案情小结：双证据成立 → 第 11 秒侦测到呼救/呻吟 · 直接越级危机 → 第一顺位（子女）· 第 15 秒接通 · 案件完结（救护链共 15 秒）</div>
+            <div class="resp-btns">
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+          <div style="margin-top:10px; opacity:.45">
+            <div class="resp-btns" style="margin-top:0">
+              <button class="btn primary">📞 紧急联系</button>
+              <button class="btn danger">🚑 拨打120</button>
+              <button class="btn ghost">已确认/误报</button>
+            </div>
+            <div style="text-align:center; font-size:11px; color:#9ca3af; margin-top:4px">案件已完结 · 备用操作</div>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>改动：</b>结案后完结栏去掉 120 快拨，底部三个按钮整体降低透明度标为"备用操作"。取舍：保留了所有入口，但信息层级变复杂，"120"字样其实还在底部，冗余感只是减弱没消除。</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

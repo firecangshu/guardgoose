@@ -398,7 +398,7 @@ const respSteps = computed<RespStep[]>(() => {
 })
 
 /* ---- 案情小结：危机链实际读秒复盘（随救护链进度每秒更新）；
-   结案口径 = 联系上任一顺位即案件完结，留 120 快拨 + 已知晓 ---- */
+   结案口径 = 联系上任一顺位即案件完结，完结栏只留已知晓收尾（120 去重，统一用底部拨打120） ---- */
 const rescueCloseLabel = computed(() => {
   const s = rescueClosedAt.value
   if (s <= 0) return ''
@@ -866,13 +866,11 @@ const breathNow = computed(() => {
           <button v-if="st.action" class="step-action" @click="onMonitorCheck">📹 {{ st.action }}</button>
         </div>
       </div>
-      <!-- 案件完结：某顺位接通 → 冻结倒计时，留 120 快拨 + 已知晓；案情小结结案后才展示（避免演出中剧透） -->
+      <!-- 案件完结：某顺位接通 → 冻结倒计时，只留已知晓收尾（120 统一用下方拨打120，去重）；案情小结结案后才展示（避免演出中剧透） -->
       <div class="rescue-close" v-if="rescueClosedAt > 0 && !rescueDismissed">
         <div class="rescue-close-title">✅ 案件完结 · {{ rescueCloseLabel }} · 救护链终止</div>
         <div class="case-summary">📋 {{ crisisSummary }}</div>
-        <div class="rescue-close-note">已预留 120 快拨服务（以备万一） · 点「已知晓」为本案收尾</div>
         <div class="resp-btns">
-          <button class="btn danger" @click="handleAlertCall120">🚑 120 快拨</button>
           <button class="btn ghost" @click="rescueDismissed = true">已知晓 · 收尾</button>
         </div>
       </div>
@@ -1134,13 +1132,12 @@ const breathNow = computed(() => {
   background: #fff; border: 1px dashed #fca5a5;
   font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
 }
-/* 案件完结栏：顺位接通后留 120 快拨 + 已知晓收尾 */
+/* 案件完结栏：顺位接通后只留已知晓收尾 */
 .rescue-close {
   margin-top: 12px; padding: 12px; border-radius: 12px;
   background: #f0fdf4; border: 1px solid #86efac;
 }
 .rescue-close-title { font-size: 13px; font-weight: 800; color: #16a34a; }
-.rescue-close-note { font-size: 12px; color: #6b7280; margin: 6px 0 4px; }
 .btn.ack.reached { background: #16a34a; }
 
 /* ---- 数据表 ---- */
