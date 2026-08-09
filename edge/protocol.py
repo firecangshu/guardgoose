@@ -27,6 +27,7 @@ EVT_FALL_BREATHING_OK = "fall_breathing_ok"      # 跌倒+呼吸正常（Zone 2 
 EVT_FALL_BREATHING_BAD = "fall_breathing_bad"    # 跌倒+呼吸异常（Zone 3 立即告警）
 EVT_VOICE_REQUERY = "voice_requery"              # 第一轮语音无回应，发起第二轮询问并报警
 EVT_FALL_RECOVERED = "fall_recovered"            # 告警态运动恢复均速且气息平稳，自动解除
+EVT_CASE_CLOSED = "case_closed"                  # 案件完结归档：全程事态发展时间线入库（子女端上报）
 # 入侵事件（防盗监测扩展能力）
 EVT_INTRUSION_SUSPECTED = "intrusion_suspected"  # 疑似入侵（睡眠/外出时异常运动）
 EVT_INTRUSION_CONFIRMED = "intrusion_confirmed"  # 入侵确认（联动摄像头/持续异常）
@@ -46,6 +47,7 @@ EVENT_TYPES = {
     EVT_FALL_BREATHING_BAD,
     EVT_VOICE_REQUERY,
     EVT_FALL_RECOVERED,
+    EVT_CASE_CLOSED,
     EVT_INTRUSION_SUSPECTED,
     EVT_INTRUSION_CONFIRMED,
 }

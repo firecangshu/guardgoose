@@ -41,6 +41,8 @@ export interface EventItem {
   source: string
   detail: string
   created_at: string
+  /** 后端事件特征字段；案件完结归档携带 case_timeline 全程时间线 */
+  features?: { detail?: string; case_timeline?: string[]; total_s?: number }
 }
 
 export interface AlertItem {
@@ -194,6 +196,9 @@ export const api = {
   clearProfile: () => post<{ ok: boolean }>('/profile/clear'),
   familyConfirm: () => post<{ ok: boolean }>('/family/confirm'),
   alertAck: () => post<{ ok: boolean }>('/alert-ack'),
+  /** 结案归档：全程事态发展时间线（双证据成立→结案）上报事件库 */
+  reportCaseClose: (body: { close_label: string; total_s: number; marks: string[] }) =>
+    post<{ ok: boolean; event_id: string }>('/case-close', body),
   getGuardMode: () => get<GuardModeData>('/guard-mode'),
   toggleGuardMode: () => post<{ ok: boolean; enabled: boolean }>('/guard-mode/toggle'),
   getVoiceConfirm: () => get<any>('/voice-confirm'),

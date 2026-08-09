@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>事态发展全程记录 · 设计方案</title>
+<style>
+  body {
+    margin: 0;
+    background: #e9ebf0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 24px 12px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 20px; color: #1d2129; text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; font-size: 13px; color: #86909c; margin-bottom: 20px; line-height: 1.8; }
+  .cols { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .col { width: 390px; }
+  .col-title {
+    font-size: 14px; font-weight: 700; text-align: center;
+    margin-bottom: 8px; padding: 6px; border-radius: 8px;
+  }
+  .t1 { background: #fee2e2; color: #b91c1c; }
+  .t2 { background: #dcfce7; color: #15803d; }
+  .t3 { background: #e0f2fe; color: #0369a1; }
+  .phone {
+    background: #fff; border-radius: 20px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.12);
+    padding: 14px;
+  }
+  .note {
+    font-size: 12px; color: #4b5563; line-height: 1.8;
+    background: #fff; border-radius: 12px; padding: 12px 14px; margin-top: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .note b { color: #16a34a; }
+
+  /* ---- 复刻应用内样式 ---- */
+  .resp {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 14px;
+    padding: 12px;
+  }
+  .resp-title { font-size: 14px; font-weight: 800; color: #b91c1c; margin-bottom: 8px; }
+  /* 新增：全程计时条 */
+  .case-timer {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #fff; border: 1px solid #fca5a5; border-radius: 12px;
+    padding: 9px 12px; margin-bottom: 10px;
+  }
+  .case-timer .lbl { font-size: 12px; font-weight: 800; color: #b91c1c; }
+  .case-timer .sec { font-size: 16px; font-weight: 800; color: #dc2626; font-variant-numeric: tabular-nums; }
+  .case-timer .from { font-size: 10.5px; color: #9ca3af; }
+  /* 新增：事态发展时间线 */
+  .timeline {
+    background: #fff; border: 1px solid #fecaca; border-radius: 12px;
+    padding: 10px 12px; margin-bottom: 10px;
+  }
+  .timeline .tl-title { font-size: 12px; font-weight: 800; color: #7f1d1d; margin-bottom: 6px; }
+  .tl-row { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.7; padding: 2px 0; }
+  .tl-row .ts { flex-shrink: 0; width: 52px; font-weight: 800; color: #b91c1c; font-variant-numeric: tabular-nums; }
+  .tl-row .tx { color: #374151; }
+  .tl-row.pending .ts { color: #d1d5db; }
+  .tl-row.pending .tx { color: #9ca3af; }
+  .tl-row.key .tx { font-weight: 700; color: #7f1d1d; }
+
+  .rescue-close {
+    padding: 12px; border-radius: 12px;
+    background: #f0fdf4; border: 1px solid #86efac;
+  }
+  .rescue-close-title { font-size: 13px; font-weight: 800; color: #16a34a; }
+  .case-summary-head {
+    margin-top: 8px; padding: 9px 12px; border-radius: 12px 12px 0 0;
+    background: #fff; border: 1px dashed #fca5a5;
+    font-size: 12px; font-weight: 700; color: #7f1d1d;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .case-summary-body {
+    padding: 10px 12px; border-radius: 0 0 12px 12px;
+    background: #fff; border: 1px dashed #fca5a5; border-top: none;
+    font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
+  }
+  .resp-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .btn {
+    flex: 1; padding: 11px 0; border-radius: 12px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn.danger { background: #b91c1c; color: #fff; }
+  .btn.ghost { background: #f3f4f6; color: #374151; }
+  /* 120 弹窗样张 */
+  .dialog {
+    margin-top: 10px; background: #fff; border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 16px;
+    border: 1px solid #e5e7eb;
+  }
+  .dialog h4 { margin: 0 0 8px; font-size: 14px; color: #1f2937; }
+  .dialog .msg { font-size: 12px; color: #374151; line-height: 1.9; white-space: pre-line; }
+  .dialog .tl-block {
+    margin-top: 8px; background: #fef2f2; border-radius: 10px;
+    padding: 8px 10px; font-size: 11px; line-height: 1.7; color: #7f1d1d;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>事态发展全程记录 · 设计方案</h1>
+  <div class="sub">双证据成立即开始记秒 → 结案冻结 → 全程节点时间线 → 结案档案与 120 弹窗随附一手素材<br>三个样张：①进行中实时读秒 ②结案后档案（案情小结展开态） ③拨 120 弹窗随附事态过程</div>
+  <div class="cols">
+
+    <!-- 样张一：进行中 -->
+    <div class="col">
+      <div class="col-title t1">① 进行中：全程读秒 + 实时节点</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="case-timer">
+            <div>
+              <div class="lbl">⏱ 事态发展进行中</div>
+              <div class="from">自双证据成立起计 · 结案自动冻结</div>
+            </div>
+            <div class="sec">47 秒</div>
+          </div>
+          <div class="timeline">
+            <div class="tl-title">📈 病情发展实时记录</div>
+            <div class="tl-row key"><span class="ts">T+0s</span><span class="tx">双证据成立：运动峰值 0.34 · 呼吸 28 次/分（加快）</span></div>
+            <div class="tl-row"><span class="ts">T+2s</span><span class="tx">现场呼唤「您还好吗？」AI 收音识别中</span></div>
+            <div class="tl-row key"><span class="ts">T+11s</span><span class="tx">侦测到呼救/呻吟 · 跳过等待 · 越级危机</span></div>
+            <div class="tl-row"><span class="ts">T+12s</span><span class="tx">开始拨打第一顺位（子女）</span></div>
+            <div class="tl-row pending"><span class="ts">—</span><span class="tx">接通/120 · 待记录…</span></div>
+          </div>
+          <div class="resp-btns">
+            <button class="btn danger">🚑 拨打120</button>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>计时起点提前</b>：从双证据成立（疑似跌倒那一刻）就开始记，不是等到直升危机；每一行节点都带真实读秒，随事件发生逐条落上去，未发生的显示「待记录」不占位剧透。</div>
+    </div>
+
+    <!-- 样张二：结案后 -->
+    <div class="col">
+      <div class="col-title t2">② 结案后：全程档案入案情小结</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary-head">
+              <span>📋 案情小结 · 点击收起</span><span style="color:#b91c1c;font-size:11px">▴</span>
+            </div>
+            <div class="case-summary-body">
+              全程用时 62 秒（双证据成立 → 案件完结）<br>
+              T+0s 双证据成立：运动峰值 0.34 · 呼吸 28 次/分（加快）<br>
+              T+2s 现场呼唤「您还好吗？」<br>
+              T+11s 侦测到呼救/呻吟 · 跳过等待 · 越级危机<br>
+              T+12s 开始拨打第一顺位（子女）<br>
+              T+62s 第一顺位接通 · 案件完结
+            </div>
+            <div class="resp-btns">
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>结案即归档</b>：案情小结展开后不再是一句话，而是完整的事态发展过程——总用时 + 逐节点读秒，一眼看懂老人从出事到获助的全过程；事件库同步留存这份档案。</div>
+    </div>
+
+    <!-- 样张三：120 弹窗 -->
+    <div class="col">
+      <div class="col-title t3">③ 拨 120：随附病情发展一手素材</div>
+      <div class="phone">
+        <div class="dialog">
+          <h4>拨打 120</h4>
+          <div class="msg">正在拨打 120…
+家庭地址同步给急救中心：
+北京市朝阳区幸福里小区 3 号楼 502</div>
+          <div class="tl-block">
+            📈 病情发展过程（已同步）：<br>
+            T+0s 疑似跌倒：运动峰值 0.34 · 呼吸 28 次/分（加快）<br>
+            T+2s 现场呼唤无回应<br>
+            T+11s 侦测到呼救/呻吟，意识可能受损<br>
+            T+47s 家属仍未接通，启动 120<br>
+            病史档案：高血压 · 跌倒高风险（千人千档）
+          </div>
+          <div class="resp-btns">
+            <button class="btn ghost">我知道了</button>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>给 120 的高价值素材</b>：拨 120 弹窗除地址外，随附发病时间线 + 呼吸/呼救关键证据 + 档案病史——急救中心派车路上就能预判病情，提高救治效率。真机阶段此内容可走短信/接口同步。</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

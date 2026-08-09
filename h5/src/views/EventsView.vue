@@ -61,10 +61,15 @@ function exportEvents() {
   if (!store.events.length) return showToast('暂无信号检测日志')
   const lines = ['时间,区域,事件,呼吸(次/分),活动强度,详情']
   for (const ev of store.events) {
+    // 案件完结归档行：详情拼上全程时间线，导出一份可直接给 120 的病情发展记录
+    let detail = ev.detail || ev.features?.detail || ''
+    if (ev.features?.case_timeline?.length) {
+      detail = (detail ? detail + ' | ' : '') + ev.features.case_timeline.join('；')
+    }
     lines.push([
       ev.ts, zoneTag(ev.guard_zone).label, eventLabel(ev.type),
       ev.breathing_rate || '', ev.intensity ? ev.intensity.toFixed(2) : '',
-      (ev.detail || '').replace(/,/g, '，'),
+      detail.replace(/,/g, '，'),
     ].join(','))
   }
   downloadText(`信号检测日志_${dayStamp()}.csv`, lines.join('\n'))
@@ -108,11 +113,16 @@ function exportSysLogs() {
               <span class="event-time">{{ fmtTime(ev.ts) }}</span>
             </div>
           </template>
-          <template #label v-if="ev.breathing_rate || ev.intensity || ev.detail">
+          <template #label v-if="ev.breathing_rate || ev.intensity || ev.detail || ev.features?.case_timeline">
             <div class="event-meta">
               <span v-if="ev.breathing_rate">呼吸 {{ ev.breathing_rate }}次/分</span>
               <span v-if="ev.intensity">强度 {{ ev.intensity.toFixed(2) }}</span>
               <span v-if="ev.detail" class="event-detail-inline">{{ ev.detail }}</span>
+              <span v-else-if="ev.features?.detail" class="event-detail-inline">{{ ev.features.detail }}</span>
+            </div>
+            <!-- 案件完结归档：全程事态发展时间线内联展示（病情发展一手素材） -->
+            <div class="case-timeline-mini" v-if="ev.features?.case_timeline">
+              <div v-for="(line, i) in ev.features.case_timeline" :key="i">{{ line }}</div>
             </div>
           </template>
         </van-cell>
@@ -246,6 +256,17 @@ function exportSysLogs() {
 
 .event-detail-inline {
   color: #666;
+}
+
+/* 案件完结归档：全程时间线内联小字 */
+.case-timeline-mini {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: #fef2f2;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #7f1d1d;
 }
 
 /* 展开/收起按钮 */

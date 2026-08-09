@@ -294,7 +294,55 @@ const rescueClosedAt = ref(0)
 const rescueDismissed = ref(false)   // 已知晓后收起完结栏
 const caseSummaryOpen = ref(false)   // 案情小结默认收起，点开头条才展开
 watch(() => store.guardZone, (z) => {
-  if (z < 4) { rescueClosedAt.value = 0; rescueDismissed.value = false; caseSummaryOpen.value = false }
+  if (z < 4) {
+    rescueClosedAt.value = 0; rescueDismissed.value = false; caseSummaryOpen.value = false
+    // 回归常态（结案后被解除/静默自解除）：全程记录清零，等待下一案
+    caseSince.value = 0; caseEndS.value = 0; caseMarks.value = []
+  }
+})
+
+/* ---- 事态发展全程记录：双证据成立即开始记秒，结案冻结；节点时间线 = 病情发展一手素材，
+   结案时上报事件库归档（POST /api/case-close），便于家人打 120 时汇报具体情况 ---- */
+const caseSince = ref(0)
+const caseEndS = ref(0)   // 结案冻结的全程秒数；0=进行中
+const caseMarks = ref<{ s: number; t: string; key?: boolean }[]>([])
+const caseElapsed = computed(() => caseEndS.value > 0
+  ? caseEndS.value
+  : (caseSince.value ? Math.floor((nowTs.value - caseSince.value) / 1000) : 0))
+function pushCaseMark(t: string, key = false) {
+  caseMarks.value.push({ s: caseElapsed.value, t, key })
+}
+/* 开案：双证据成立那一刻（T+0 记录当时的运动/呼吸实况） */
+watch(showEvidence, (on) => {
+  if (on && !caseSince.value) {
+    caseSince.value = Date.now()
+    caseEndS.value = 0
+    caseMarks.value = []
+    const br = store.breathingRate > 0
+      ? `呼吸 ${store.breathingRate} 次/分（${store.breathingInfo.label}）` : '呼吸信号消失'
+    pushCaseMark(`双证据成立：运动峰值 ${motionPeak.value.toFixed(2)} · ${br}`, true)
+  }
+})
+/* 确证链节点：呼唤发起 / 提升级别 */
+watch(() => store.voiceRound, (r) => {
+  if (!caseSince.value || caseEndS.value) return
+  if (r === 1) pushCaseMark('现场呼唤「您还好吗？」· AI 收音识别中')
+  else if (r === 2) pushCaseMark('第 1 轮无回应 · 提升级别再次呼唤 · 报警通知家人', true)
+})
+/* 确证结果：呼救越级 / 回应没事 */
+watch(() => store.voiceConfirmState, (vc) => {
+  if (!caseSince.value || caseEndS.value) return
+  if (vc === 'help') pushCaseMark('侦测到呼救/呻吟 · 跳过等待 · 越级危机', true)
+  else if (vc === 'ok') pushCaseMark('老人回应「没事」· 警报解除')
+})
+/* 进入危机 = 开始拨打第一顺位（救护链各顺位小倒计时依旧保留在步骤内） */
+watch(() => store.guardZone, (z) => {
+  if (z >= 4 && caseSince.value && !caseEndS.value) {
+    pushCaseMark('升级高危危机 · 开始拨打第一顺位（子女）', true)
+  }
+})
+watch(rescueDismissed, (d) => {
+  if (d) { caseSince.value = 0; caseEndS.value = 0; caseMarks.value = [] }
 })
 /* 演示剧本自动结案：后端在剧本设定秒数广播顺位接通（真机接入后由通话系统发同款消息） */
 watch(() => store.rescueAnsweredSeq, () => {
@@ -414,6 +462,18 @@ function onRescueReached() {
   rescueClosedAt.value = Math.max(1, crisisElapsed.value)
   if (store.ackRequired && !store.alertAcked) void store.ackAlert()
 }
+/* 结案：冻结全程读秒 + 补收尾节点 + 时间线上报事件库归档 */
+watch(rescueClosedAt, (s) => {
+  if (s > 0 && caseSince.value && !caseEndS.value) {
+    caseEndS.value = Math.max(caseElapsed.value, 1)
+    pushCaseMark(`${rescueCloseLabel.value} · 案件完结`, true)
+    api.reportCaseClose({
+      close_label: `案件完结 · ${rescueCloseLabel.value} · 全程 ${caseEndS.value} 秒`,
+      total_s: caseEndS.value,
+      marks: caseMarks.value.map(m => `T+${m.s}s ${m.t}`),
+    }).catch(() => { /* 归档失败不阻断收尾 */ })
+  }
+})
 const crisisSummary = computed(() => {
   const vc = store.voiceConfirmState
   let prefix = ''
@@ -856,6 +916,21 @@ const breathNow = computed(() => {
       <div class="resp-title">🚨 已自动启动的应对措施</div>
       <!-- 告警链中的呼吸持续监测：巩固信息，展示收集情况与趋势 -->
       <div class="breath-monitor" :class="breathTrend.cls">🫁 呼吸持续监测：{{ breathTrend.text }}</div>
+      <!-- 事态发展全程记录：双证据成立即记秒、结案冻结；救护链各顺位小倒计时仍保留在下方步骤内 -->
+      <div class="case-timer" v-if="caseSince > 0">
+        <div>
+          <div class="ct-lbl">⏱ {{ caseEndS > 0 ? '事态发展 · 已结案' : '事态发展 · 进行中' }}</div>
+          <div class="ct-from">自双证据成立起计{{ caseEndS > 0 ? ' · 已冻结' : ' · 结案自动冻结' }}</div>
+        </div>
+        <div class="ct-sec">{{ caseElapsed }} 秒</div>
+      </div>
+      <div class="case-timeline" v-if="caseMarks.length">
+        <div class="ct-title">📈 病情发展实时记录</div>
+        <div class="ct-row" v-for="(m, i) in caseMarks" :key="i" :class="{ key: m.key }">
+          <span class="ct-ts">T+{{ m.s }}s</span><span class="ct-tx">{{ m.t }}</span>
+        </div>
+        <div class="ct-row pending" v-if="!caseEndS"><span class="ct-ts">—</span><span class="ct-tx">接通/处置结果 · 待记录…</span></div>
+      </div>
       <div class="step" v-for="(st, i) in respSteps" :key="i">
         <div class="step-dot" :class="st.cls">{{ st.cls === 'done' ? '✓' : st.cls === 'doing' ? '⋯' : '○' }}</div>
         <div class="step-body">
@@ -874,7 +949,14 @@ const breathNow = computed(() => {
           <span>📋 案情小结 · {{ caseSummaryOpen ? '点击收起' : '点开展开' }}</span>
           <span class="chev">{{ caseSummaryOpen ? '▴' : '▾' }}</span>
         </div>
-        <div class="case-summary" v-if="caseSummaryOpen">{{ crisisSummary }}</div>
+        <div class="case-summary" v-if="caseSummaryOpen">
+          <template v-if="caseMarks.length">
+            <div class="cs-line cs-total">全程用时 {{ caseEndS || caseElapsed }} 秒（双证据成立 → 案件完结）</div>
+            <div class="cs-line" v-for="(m, i) in caseMarks" :key="i">T+{{ m.s }}s {{ m.t }}</div>
+            <div class="cs-line cs-note">以上时间节点可作为拨打 120 时汇报病情的第一手材料</div>
+          </template>
+          <template v-else>{{ crisisSummary }}</template>
+        </div>
         <div class="resp-btns">
           <button class="btn ghost" @click="rescueDismissed = true">已知晓 · 收尾</button>
         </div>
@@ -1145,6 +1227,29 @@ const breathNow = computed(() => {
   background: #fff; border: 1px dashed #fca5a5; border-top: none;
   font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
 }
+.cs-line { padding: 1px 0; }
+.cs-total { font-weight: 800; }
+.cs-note { color: #9ca3af; font-weight: 400; font-size: 11px; margin-top: 4px; }
+/* 事态发展全程记录：计时条 + 节点时间线（双证据成立→结案） */
+.case-timer {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fff; border: 1px solid #fca5a5; border-radius: 12px;
+  padding: 9px 12px; margin-top: 8px;
+}
+.ct-lbl { font-size: 12px; font-weight: 800; color: #b91c1c; }
+.ct-from { font-size: 10.5px; color: #9ca3af; margin-top: 2px; }
+.ct-sec { font-size: 16px; font-weight: 800; color: #dc2626; font-variant-numeric: tabular-nums; }
+.case-timeline {
+  background: #fff; border: 1px solid #fecaca; border-radius: 12px;
+  padding: 10px 12px; margin-top: 8px;
+}
+.ct-title { font-size: 12px; font-weight: 800; color: #7f1d1d; margin-bottom: 6px; }
+.ct-row { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.7; padding: 2px 0; }
+.ct-ts { flex-shrink: 0; width: 52px; font-weight: 800; color: #b91c1c; font-variant-numeric: tabular-nums; }
+.ct-tx { color: #374151; }
+.ct-row.key .ct-tx { font-weight: 700; color: #7f1d1d; }
+.ct-row.pending .ct-ts { color: #d1d5db; }
+.ct-row.pending .ct-tx { color: #9ca3af; }
 /* 案件完结栏：顺位接通后只留已知晓收尾 */
 .rescue-close {
   margin-top: 12px; padding: 12px; border-radius: 12px;

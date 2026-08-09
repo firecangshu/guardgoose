@@ -65,6 +65,7 @@ export const EVENT_MAP: Record<string, string> = {
   breathing_lost: '呼吸消失',
   fall_breathing_ok: '跌倒（呼吸正常）',
   fall_breathing_bad: '跌倒（呼吸异常）',
+  case_closed: '案件完结归档',
   intrusion_suspected: '疑似入侵',
   intrusion_confirmed: '入侵确认',
 }

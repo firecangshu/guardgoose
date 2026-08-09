@@ -26,7 +26,8 @@ from . import config as C
 from . import guardian
 from . import medical
 from .db import open_store
-from .protocol import (EVENT_TYPES, Event, EVT_FALL_BREATHING_BAD, EVT_FALL_RECOVERED,
+from .protocol import (EVENT_TYPES, Event, EVT_CASE_CLOSED, EVT_FALL_BREATHING_BAD,
+                        EVT_FALL_RECOVERED,
                         EVT_VOICE_REQUERY, SRC_DEMO_INJECT, SRC_CSI_LIVE, ZONE_RED, ZONE_BLACK)
 from .state_machine import SampleProcessor
 from .voice import VoiceConfirmSession
@@ -234,6 +235,32 @@ async def ingest_event(ev: IngestEventIn):
         raise HTTPException(status_code=400, detail=f"未知事件类型：{ev.type}")
     event = Event(**ev.model_dump())
     await _handle_event(event)
+    return {"ok": True, "event_id": event.event_id}
+
+
+class CaseCloseIn(BaseModel):
+    """案件完结归档入参：全程事态发展时间线（双证据成立→结案），子女端结案时上报。"""
+
+    close_label: str = ""
+    total_s: int = Field(default=0, ge=0)
+    marks: list[str] = Field(default_factory=list)
+
+
+@app.post("/api/case-close")
+async def api_case_close(body: CaseCloseIn):
+    """结案归档：时间线以 case_closed 事件入事件库（纯留痕，不走状态机判定）。"""
+    event = Event(
+        type=EVT_CASE_CLOSED,
+        duration_s=body.total_s,
+        features={"detail": body.close_label,
+                  "case_timeline": body.marks,
+                  "total_s": body.total_s,
+                  "guard_zone": processor.guard_zone},
+        source=SRC_DEMO_INJECT if _mode_state.get("demo_enabled") else SRC_CSI_LIVE,
+    )
+    store.insert_event(event)
+    await manager.broadcast({"kind": "event", "data": event.to_dict()})
+    sys_log("info", f"案件完结已归档事件库 · {body.close_label or '结案'} · 全程 {body.total_s} 秒")
     return {"ok": True, "event_id": event.event_id}
 
 
