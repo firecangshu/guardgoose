@@ -5,12 +5,9 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const current = ref(0)
 
-const SLIDES = [
+const SLIDES: { rich?: boolean; icon?: string; title?: string; desc?: string }[] = [
   {
-    icon: '🗺️',
-    title: '无感守护 · 程序结构',
-    desc: '',
-    custom: 'structure',   // 程序结构一图流：五类色卡+数据流主线
+    rich: true,
   },
   {
     icon: '🫁',
@@ -29,13 +26,19 @@ const SLIDES = [
   },
 ]
 
-/* 程序结构五类色卡：颜色对应结构地图的五类划分 */
-const STRUCT_CARDS = [
-  { icon: '🟦', name: '源文件', path: 'edge/ · hw/ · h5/src', desc: '判定后端 · 硬件接入 · 子女端——改产品只动这里', color: '#2563eb' },
-  { icon: '🟪', name: '剧本', path: 'replay/scenarios/', desc: '18 个演示剧本 JSON，演出时逐段注入状态机', color: '#7c3aed' },
-  { icon: '🟩', name: '真数据引入', path: 'hw/bridge.py', desc: '串口采集 → /ingest/sample，真实接入唯一闸门', color: '#16a34a' },
-  { icon: '🟨', name: '测试数据库', path: 'test_data_db/', desc: '真机测试逐秒落盘+自动总结，找规律优化算法', color: '#d97706' },
-  { icon: '⬜', name: '缓存/可清理', path: '*.log · dist · __pycache__', desc: '运行产物随时可清，waveguard.db 为运行事件库', color: '#9ca3af' },
+// 首屏（无感守护）富排版内容：文字与产品介绍页定稿完全一致，仅排版优化
+const ALERT_STEPS = [
+  '点「查看详情」',
+  '按提示处理',
+  '若误报点「误报，解除警报」',
+  '若确有其事点「情况属实，呼叫救援」',
+  '系统自动发起语音确证',
+]
+const FEATURES = [
+  { k: '零隐私泄露：', t: '全程无图像、无录音，仅CSI信号特征' },
+  { k: '无感使用：', t: '老人无需佩戴、无需操作、无需改变习惯' },
+  { k: '跌倒+呼吸双监测：', t: '跌倒秒级告警，呼吸异常（过快/减弱/消失）同步预警' },
+  { k: '个性化适配：', t: '根据病史档案自动调整判定阈值，减少误报' },
 ]
 
 function finish() {
@@ -61,31 +64,48 @@ function onChange(i: number) {
 
     <van-swipe class="swipe" :show-indicators="false" @change="onChange">
       <van-swipe-item v-for="(s, i) in SLIDES" :key="i">
-        <div class="slide" :class="{ 'slide-structure': s.custom === 'structure' }">
-          <template v-if="s.custom === 'structure'">
-            <h2 class="slide-title">{{ s.title }}</h2>
-            <!-- 数据流主线：真机一条链，演示一条支线，共用同一状态机 -->
-            <div class="flow-line">
-              <span class="flow-node">ESP32 板子</span><span class="flow-arrow">→</span>
-              <span class="flow-node">bridge.py</span><span class="flow-arrow">→</span>
-              <span class="flow-node">状态机</span><span class="flow-arrow">→</span>
-              <span class="flow-node">子女端</span>
+        <div class="slide" :class="{ 'slide--rich': s.rich }">
+          <!-- 首屏：产品介绍富排版（文字原样保留，仅优化排版） -->
+          <template v-if="s.rich">
+            <h1 class="rich-title">护院鹅 · 独居老人无感守护神</h1>
+            <div class="rich-intro">
+              <p>不用传统的摄像头，也不用佩戴任何设备——只需在房间放置一对CSI收发探测器，即可感知老人的活动与呼吸。</p>
+              <p class="intro-privacy">全程不采集任何图像和声音，只提取信号特征，守护隐私。</p>
+              <p>本地运行：数据在设备端处理，仅异常事件推送到子女手机。</p>
             </div>
-            <div class="flow-sub">演示支线：剧本 JSON → 演示循环，同一状态机</div>
-            <!-- 五类色卡：一眼分清谁是什么 -->
-            <div class="struct-cards">
-              <div
-                v-for="c in STRUCT_CARDS" :key="c.name"
-                class="struct-card" :style="{ borderLeftColor: c.color }"
-              >
-                <span class="sc-icon">{{ c.icon }}</span>
-                <div class="sc-body">
-                  <div class="sc-name">{{ c.name }}<span class="sc-path">{{ c.path }}</span></div>
-                  <div class="sc-desc">{{ c.desc }}</div>
-                </div>
-              </div>
+
+            <h3 class="rich-h">快速上手</h3>
+            <table class="qs-table">
+              <thead>
+                <tr><th>您想看…</th><th>页面</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>老人现在怎么样</td>
+                  <td class="qs-page">守护页</td>
+                  <td>看最上面的卡片：绿色正常·橙色观察·红色告警·黑色紧急</td>
+                </tr>
+                <tr>
+                  <td>发生过什么</td>
+                  <td class="qs-page">事件库</td>
+                  <td>底部第二个按钮；每条事件点开可看完整过程</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3 class="rich-h">收到告警</h3>
+            <div class="alert-flow">
+              <template v-for="(st, idx) in ALERT_STEPS" :key="idx">
+                <span class="flow-step">{{ st }}</span>
+                <span v-if="idx < ALERT_STEPS.length - 1" class="flow-arrow">→</span>
+              </template>
             </div>
-            <div class="struct-loop">🔁 优化闭环：测试落盘 → 补备注 → 找规律 → 调参 → 回归验证</div>
+            <p class="flow-note">（通过扬声器询问老人），并按紧急联系人顺序自动拨打，30秒无应答切下一位</p>
+
+            <h3 class="rich-h">产品特点</h3>
+            <ul class="feat-list">
+              <li v-for="(f, idx) in FEATURES" :key="idx"><b>{{ f.k }}</b>{{ f.t }}</li>
+            </ul>
           </template>
           <template v-else>
             <div class="slide-icon">{{ s.icon }}</div>
@@ -185,102 +205,147 @@ function onChange(i: number) {
   margin: 0;
 }
 
-/* ---- 程序结构一图流（第一屏）：内容密，改左对齐紧凑排布 ---- */
-.slide-structure {
+/* ---- 首屏富排版（无感守护产品介绍） ---- */
+.slide--rich {
   align-items: stretch;
   justify-content: flex-start;
   text-align: left;
   overflow-y: auto;
-  padding: 8px 4px;
+  padding: 4px 4px 20px;
 }
 
-.slide-structure .slide-title {
+.rich-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1d2129;
   text-align: center;
-  font-size: 20px;
-  margin: 0 0 10px;
+  margin: 10px 0 14px;
 }
 
-/* 数据流主线：横向节点链 */
-.flow-line {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
+.rich-intro {
+  background: #f7f8fa;
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
-.flow-node {
-  background: #eef4ff;
-  color: #2563eb;
-  border-radius: 6px;
-  padding: 3px 8px;
-  font-size: 12px;
+.rich-intro p {
+  font-size: 14px;
+  color: #4e5969;
+  line-height: 1.7;
+  margin: 0 0 8px;
+}
+
+.rich-intro p:last-child {
+  margin-bottom: 0;
+}
+
+.intro-privacy {
+  color: #07c160;
   font-weight: 600;
 }
 
-.flow-arrow {
-  color: #9ca3af;
-  font-size: 12px;
-}
-
-.flow-sub {
-  text-align: center;
-  font-size: 11px;
-  color: #999;
-  margin: 6px 0 10px;
-}
-
-/* 五类色卡：左边框颜色即分类色 */
-.struct-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.struct-card {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  background: #fafbfc;
-  border: 1px solid #f0f1f3;
-  border-left: 3px solid #ccc;
-  border-radius: 8px;
-  padding: 7px 10px;
-}
-
-.sc-icon {
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.sc-name {
-  font-size: 13px;
+.rich-h {
+  font-size: 16px;
   font-weight: 700;
   color: #1d2129;
+  margin: 18px 0 10px;
+  padding-left: 8px;
+  border-left: 3px solid #07c160;
 }
 
-.sc-path {
-  font-weight: 400;
-  font-size: 11px;
-  color: #999;
-  margin-left: 6px;
+.qs-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #f7f8fa;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
 }
 
-.sc-desc {
-  font-size: 11px;
-  color: #666;
-  line-height: 1.5;
-  margin-top: 1px;
+.qs-table th {
+  background: #eef1f4;
+  color: #86909c;
+  font-weight: 600;
+  padding: 10px 8px;
+  text-align: left;
 }
 
-.struct-loop {
-  margin-top: 10px;
-  text-align: center;
-  font-size: 11px;
-  color: #d97706;
-  background: #fffbeb;
+.qs-table td {
+  padding: 12px 8px;
+  color: #333;
+  line-height: 1.6;
+  border-top: 1px solid #eef0f3;
+  vertical-align: top;
+}
+
+.qs-page {
+  color: #1989fa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.alert-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+  background: #f7f8fa;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.flow-step {
+  background: #fff;
+  border: 1px solid #e5e6eb;
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.flow-arrow {
+  color: #ff9f0a;
+  font-weight: 700;
+}
+
+.flow-note {
+  font-size: 12px;
+  color: #86909c;
+  line-height: 1.6;
+  margin: 8px 2px 0;
+}
+
+.feat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.feat-list li {
+  position: relative;
+  padding: 10px 0 10px 18px;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.6;
+  border-bottom: 1px solid #f2f3f5;
+}
+
+.feat-list li:last-child {
+  border-bottom: none;
+}
+
+.feat-list li::before {
+  content: '●';
+  position: absolute;
+  left: 0;
+  top: 13px;
+  font-size: 10px;
+  color: #07c160;
+}
+
+.feat-list b {
+  color: #1d2129;
 }
 
 .dots {
