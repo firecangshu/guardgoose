@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案情小结 · 点开才展开 交互预览</title>
+<style>
+  body {
+    margin: 0;
+    background: #e9ebf0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 24px 12px;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; }
+  h1 { font-size: 20px; color: #1d2129; text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; font-size: 13px; color: #86909c; margin-bottom: 20px; }
+  .cols { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .col { width: 390px; }
+  .col-title {
+    font-size: 14px; font-weight: 700; text-align: center;
+    margin-bottom: 8px; padding: 6px; border-radius: 8px;
+    background: #e0f2fe; color: #0369a1;
+  }
+  .phone {
+    background: #fff; border-radius: 20px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.12);
+    padding: 14px;
+  }
+  .note {
+    font-size: 12px; color: #4b5563; line-height: 1.8;
+    background: #fff; border-radius: 12px; padding: 12px 14px; margin-top: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .note b { color: #16a34a; }
+
+  /* ---- 复刻应用内样式 ---- */
+  .resp {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 14px;
+    padding: 12px;
+  }
+  .resp-title { font-size: 14px; font-weight: 800; color: #b91c1c; margin-bottom: 8px; }
+  .rescue-close {
+    padding: 12px; border-radius: 12px;
+    background: #f0fdf4; border: 1px solid #86efac;
+  }
+  .rescue-close-title { font-size: 13px; font-weight: 800; color: #16a34a; }
+  /* 折叠态：单行可点头条 */
+  .case-summary-head {
+    margin-top: 8px; padding: 9px 12px; border-radius: 12px;
+    background: #fff; border: 1px dashed #fca5a5;
+    font-size: 12px; font-weight: 700; color: #7f1d1d;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+  }
+  .case-summary-head .chev { color: #b91c1c; font-size: 11px; }
+  /* 展开态：头条 + 全文 */
+  .case-summary-body {
+    margin-top: 6px; padding: 10px 12px; border-radius: 0 0 12px 12px;
+    background: #fff; border: 1px dashed #fca5a5; border-top: none;
+    font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
+  }
+  .case-summary-head.open { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+  .case-summary-head.open + .case-summary-body { margin-top: 0; }
+  .resp-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .btn {
+    flex: 1; padding: 11px 0; border-radius: 12px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn.ghost { background: #f3f4f6; color: #374151; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>案情小结 · 「点开才展开」交互预览</h1>
+  <div class="sub">左：默认收起（只显示一行头条）· 右：点击后展开全文</div>
+  <div class="cols">
+
+    <!-- 收起态（默认） -->
+    <div class="col">
+      <div class="col-title">默认：收起一行</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary-head">
+              <span>📋 案情小结 · 点开展开</span>
+              <span class="chev">▾</span>
+            </div>
+            <div class="resp-btns">
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>结案瞬间不再铺开长文</b>：家人第一眼看到的是「案件完结」结论 + 一行可点的头条，版面清爽，想了解过程再点开。</div>
+    </div>
+
+    <!-- 展开态 -->
+    <div class="col">
+      <div class="col-title">点击后：展开全文</div>
+      <div class="phone">
+        <div class="resp">
+          <div class="resp-title">🚨 已自动启动的应对措施</div>
+          <div class="rescue-close">
+            <div class="rescue-close-title">✅ 案件完结 · 第一顺位（子女）· 第 15 秒接通 · 救护链终止</div>
+            <div class="case-summary-head open">
+              <span>📋 案情小结 · 点击收起</span>
+              <span class="chev">▴</span>
+            </div>
+            <div class="case-summary-body">案情小结：双证据成立 → 第 11 秒侦测到呼救/呻吟 · 跳过一切等待 · 直接越级危机 → 第一顺位（子女）· 第 15 秒接通 · 案件完结（救护链共 15 秒）</div>
+            <div class="resp-btns">
+              <button class="btn ghost">已知晓 · 收尾</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note">头条与正文无缝拼接（虚线框连通），再点一次收起。<b>文字内容一字未动</b>，只是从"自动铺开"改为"点开才展开"。</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

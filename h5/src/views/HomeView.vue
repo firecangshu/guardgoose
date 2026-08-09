@@ -292,8 +292,9 @@ const RESCUE_CONTACT_S = 30
 /* 案件完结：某顺位接通 → 冻结救护链倒计时（记录接通时的秒数） */
 const rescueClosedAt = ref(0)
 const rescueDismissed = ref(false)   // 已知晓后收起完结栏
+const caseSummaryOpen = ref(false)   // 案情小结默认收起，点开头条才展开
 watch(() => store.guardZone, (z) => {
-  if (z < 4) { rescueClosedAt.value = 0; rescueDismissed.value = false }
+  if (z < 4) { rescueClosedAt.value = 0; rescueDismissed.value = false; caseSummaryOpen.value = false }
 })
 /* 演示剧本自动结案：后端在剧本设定秒数广播顺位接通（真机接入后由通话系统发同款消息） */
 watch(() => store.rescueAnsweredSeq, () => {
@@ -866,10 +867,14 @@ const breathNow = computed(() => {
           <button v-if="st.action" class="step-action" @click="onMonitorCheck">📹 {{ st.action }}</button>
         </div>
       </div>
-      <!-- 案件完结：某顺位接通 → 冻结倒计时，只留已知晓收尾（120 统一用下方拨打120，去重）；案情小结结案后才展示（避免演出中剧透） -->
+      <!-- 案件完结：某顺位接通 → 冻结倒计时，只留已知晓收尾（120 统一用下方拨打120，去重）；案情小结结案后才展示且默认收起，点开才展开（避免演出中剧透） -->
       <div class="rescue-close" v-if="rescueClosedAt > 0 && !rescueDismissed">
         <div class="rescue-close-title">✅ 案件完结 · {{ rescueCloseLabel }} · 救护链终止</div>
-        <div class="case-summary">📋 {{ crisisSummary }}</div>
+        <div class="case-summary-head" :class="{ open: caseSummaryOpen }" @click="caseSummaryOpen = !caseSummaryOpen">
+          <span>📋 案情小结 · {{ caseSummaryOpen ? '点击收起' : '点开展开' }}</span>
+          <span class="chev">{{ caseSummaryOpen ? '▴' : '▾' }}</span>
+        </div>
+        <div class="case-summary" v-if="caseSummaryOpen">{{ crisisSummary }}</div>
         <div class="resp-btns">
           <button class="btn ghost" @click="rescueDismissed = true">已知晓 · 收尾</button>
         </div>
@@ -1126,10 +1131,18 @@ const breathNow = computed(() => {
 .resp-title.ok { color: #16a34a; }
 .cleared-line { font-size: 12px; color: #374151; line-height: 1.8; }
 .cleared-line.note { color: #9ca3af; margin-top: 4px; }
-/* 案情小结：结案后展示的危机链实际读秒复盘（演出中不出现，避免剧透） */
-.case-summary {
-  margin-top: 8px; padding: 10px 12px; border-radius: 12px;
+/* 案情小结：结案后展示的危机链实际读秒复盘（演出中不出现，避免剧透）；默认收起一行头条，点开才展开全文 */
+.case-summary-head {
+  margin-top: 8px; padding: 9px 12px; border-radius: 12px;
   background: #fff; border: 1px dashed #fca5a5;
+  font-size: 12px; font-weight: 700; color: #7f1d1d;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.case-summary-head .chev { color: #b91c1c; font-size: 11px; }
+.case-summary-head.open { border-radius: 12px 12px 0 0; }
+.case-summary {
+  padding: 10px 12px; border-radius: 0 0 12px 12px;
+  background: #fff; border: 1px dashed #fca5a5; border-top: none;
   font-size: 12px; line-height: 1.8; color: #7f1d1d; font-weight: 600;
 }
 /* 案件完结栏：顺位接通后只留已知晓收尾 */
