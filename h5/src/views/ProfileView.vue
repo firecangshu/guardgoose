@@ -20,6 +20,15 @@ const basicSummary = computed(() => {
 })
 const healthSummary = computed(() =>
   '身体状态 · ' + (HEALTH_STATUS_MAP[form.value.health_status]?.label || '未选择'))
+/** 紧急联系摘要：不展开也能看到建档采集的住址与电话是否在册 */
+const contactSummary = computed(() => {
+  const phones = (form.value.emergency_phones || []).filter(p => p && p.trim()).length
+  const parts: string[] = []
+  parts.push(form.value.address?.trim() ? '住址已登记' : '住址未填')
+  parts.push(form.value.elder_phone?.trim() ? '守护人电话已登记' : '守护人电话未填')
+  parts.push(`紧急电话 ${phones}/3`)
+  return '紧急联系 · ' + parts.join(' · ')
+})
 
 /** 表单初始态：首次进页与注销清零后都回到这份默认值 */
 function defaultForm(): ProfileData {
@@ -267,7 +276,11 @@ async function handleExit() {
       </van-cell>
       <van-field v-model="form.wake_time" label="起床时间" placeholder="06:30" />
       <van-field v-model="form.sleep_time" label="入睡时间" placeholder="21:30" />
-      <van-field v-model="form.address" label="居住地址" placeholder="告警时同步给急救中心" />
+      </van-collapse-item>
+
+      <!-- 紧急联系（建档第6步采集）：独立成区，标题行摘要直接可见，点开修改 -->
+      <van-collapse-item name="contact" :title="contactSummary">
+      <van-field v-model="form.address" label="家庭住址" placeholder="拨120时同步给急救中心" />
       <van-field v-model="form.elder_phone" label="守护人电话" type="tel" placeholder="老人直线，告警时第一时间致电确认意识" />
       <van-field v-model="form.emergency_phones[0]" label="紧急电话 1" type="tel" placeholder="第一顺位联系人（必填）" />
       <van-field v-model="form.emergency_phones[1]" label="紧急电话 2" type="tel" placeholder="冗余备用：电话1打不通自动切到它（必填）" />
