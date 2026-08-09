@@ -575,7 +575,11 @@ const EMERGENCY_LABELS = ['第一', '第二', '第三']
 async function handleAlertCallEmergency() {
   const phones = (store.profile?.emergency_phones || []).filter(p => p).slice(0, 3)
   if (!phones.length) {
-    showDialog({ title: '紧急联系', message: `未填写紧急电话，请先在档案页填写，或立即拨打${store.elderName}的电话` })
+    const elder = store.profile?.elder_phone
+    showDialog({ title: '紧急联系', message: elder
+      ? `未填写紧急电话，请先在档案页填写。正在拨打守护人电话（${store.elderName}直线）：${elder}`
+      : `未填写紧急电话，请先在档案页填写，或立即拨打${store.elderName}的电话` })
+    if (elder) window.location.href = `tel:${elder}`
     return
   }
   await callEmergencyStep(phones, 0)

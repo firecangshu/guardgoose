@@ -309,6 +309,7 @@ class MedicalProfile:
     wake_time: str = "06:30"       # 起床时间
     bed_time: str = "21:30"        # 就寝时间
     address: str = ""              # 老人居住地址（报警120时同步给急救中心）
+    elder_phone: str = ""          # 守护人电话（老人直线，告警时第一时间致电确认意识；存 emergency_phone 列）
     emergency_phones: list[str] = field(default_factory=list)  # 紧急联系电话（最多3个，逐个降级拨打）
     updated_at: str = ""
 
@@ -602,15 +603,13 @@ def _persist_custom_disease(conn: sqlite3.Connection, disease: CustomDisease) ->
 
 
 def _load_emergency_phones(row: sqlite3.Row) -> list[str]:
-    """读紧急电话列表（最多3个），兼容旧单电话列 emergency_phone。"""
+    """读紧急电话列表（最多3个）。emergency_phone 单列现为守护人电话（老人直线），不再混入顺位名单。"""
     phones: list[str] = []
     if "emergency_phones" in row.keys() and row["emergency_phones"]:
         try:
             phones = [p for p in json.loads(row["emergency_phones"]) if p]
         except (TypeError, ValueError):
             phones = []
-    if not phones and "emergency_phone" in row.keys() and row["emergency_phone"]:
-        phones = [row["emergency_phone"]]
     return phones[:3]
 
 
@@ -633,6 +632,7 @@ def load_profile(conn: sqlite3.Connection) -> MedicalProfile:
         wake_time=row["wake_time"],
         bed_time=row["bed_time"],
         address=(row["address"] if "address" in row.keys() else "") or "",
+        elder_phone=(row["emergency_phone"] if "emergency_phone" in row.keys() else "") or "",
         emergency_phones=_load_emergency_phones(row),
         updated_at=row["updated_at"] or "",
     )
@@ -644,7 +644,7 @@ def save_profile(conn: sqlite3.Connection, profile: MedicalProfile) -> None:
         "UPDATE medical_profile SET "
         "elder_name=?, age=?, weight_kg=?, relationship=?, health_status=?, conditions=?, medications=?, "
         "fall_history=?, syncope_history=?, family_sudden_death=?, "
-        "wake_time=?, bed_time=?, address=?, emergency_phones=?, updated_at=? "
+        "wake_time=?, bed_time=?, address=?, emergency_phone=?, emergency_phones=?, updated_at=? "
         "WHERE id=1",
         (profile.elder_name, profile.age, profile.weight_kg,
          profile.relationship, profile.health_status,
@@ -653,7 +653,8 @@ def save_profile(conn: sqlite3.Connection, profile: MedicalProfile) -> None:
          profile.fall_history, profile.syncope_history,
          int(profile.family_sudden_death),
          profile.wake_time, profile.bed_time,
-         profile.address, json.dumps(profile.emergency_phones, ensure_ascii=False),
+         profile.address, profile.elder_phone,
+         json.dumps(profile.emergency_phones, ensure_ascii=False),
          datetime.now().astimezone().isoformat(timespec="seconds")),
     )
     conn.commit()

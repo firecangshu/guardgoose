@@ -774,6 +774,7 @@ class ProfileIn(BaseModel):
     wake_time: str = "06:30"
     sleep_time: str = "21:30"
     address: str = ""           # 老人居住地址（报警120时同步）
+    elder_phone: str = ""       # 守护人电话（老人直线，告警时第一时间致电确认意识）
     emergency_phones: list[str] = []  # 紧急联系电话（最多3个，逐个降级拨打）
 
 
@@ -797,6 +798,7 @@ async def api_get_profile():
         "wake_time": profile.wake_time,
         "sleep_time": profile.bed_time,
         "address": profile.address,
+        "elder_phone": profile.elder_phone,
         "emergency_phones": profile.emergency_phones,
         "is_multi_medication": profile.is_multi_medication,
         "is_high_risk": profile.is_high_risk,
@@ -814,7 +816,8 @@ async def api_save_profile(p: ProfileIn):
         fall_history=p.fall_count, syncope_history=p.syncope_count,
         family_sudden_death=p.family_sudden_cardiac_death,
         wake_time=p.wake_time, bed_time=p.sleep_time,
-        address=p.address, emergency_phones=[x for x in p.emergency_phones if x][:3],
+        address=p.address, elder_phone=p.elder_phone,
+        emergency_phones=[x for x in p.emergency_phones if x][:3],
     )
     medical.save_profile(store._conn, profile)
     # 档案存档即重新注入修正系数（千人千档）：语音超时/跳过语音/zone3升级一并接管

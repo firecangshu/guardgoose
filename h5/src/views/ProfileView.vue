@@ -37,6 +37,7 @@ function defaultForm(): ProfileData {
     wake_time: '06:30',
     sleep_time: '21:30',
     address: '',
+    elder_phone: '',
     emergency_phones: ['', '', ''],
   }
 }
@@ -267,9 +268,10 @@ async function handleExit() {
       <van-field v-model="form.wake_time" label="起床时间" placeholder="06:30" />
       <van-field v-model="form.sleep_time" label="入睡时间" placeholder="21:30" />
       <van-field v-model="form.address" label="居住地址" placeholder="告警时同步给急救中心" />
-      <van-field v-model="form.emergency_phones[0]" label="紧急电话 1" type="tel" placeholder="首选联系人（建议必填）" />
-      <van-field v-model="form.emergency_phones[1]" label="紧急电话 2" type="tel" placeholder="备用：电话1打不通自动切到它" />
-      <van-field v-model="form.emergency_phones[2]" label="紧急电话 3" type="tel" placeholder="备用：电话2打不通自动切到它" />
+      <van-field v-model="form.elder_phone" label="守护人电话" type="tel" placeholder="老人直线，告警时第一时间致电确认意识" />
+      <van-field v-model="form.emergency_phones[0]" label="紧急电话 1" type="tel" placeholder="第一顺位联系人（必填）" />
+      <van-field v-model="form.emergency_phones[1]" label="紧急电话 2" type="tel" placeholder="冗余备用：电话1打不通自动切到它（必填）" />
+      <van-field v-model="form.emergency_phones[2]" label="紧急电话 3" type="tel" placeholder="冗余备用：电话2打不通自动切到它（必填）" />
       </van-collapse-item>
 
       <van-collapse-item name="health" :title="healthSummary">

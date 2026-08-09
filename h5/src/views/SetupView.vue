@@ -9,7 +9,7 @@ const router = useRouter()
 const store = useGuardianStore()
 
 const step = ref(0)
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 6
 const saving = ref(false)
 
 const form = reactive({
@@ -24,6 +24,9 @@ const form = reactive({
   fall_count: 0,
   syncope_count: 0,
   family_sudden_cardiac_death: false,
+  address: '',
+  elder_phone: '',
+  emergency_phones: ['', '', ''] as string[],
 })
 
 const diseaseOptions = Object.entries(DISEASE_MAP).map(([value, text]) => ({ text, value }))
@@ -105,6 +108,12 @@ function next() {
 }
 
 async function finish() {
+  /* 紧急联系全部必填（冗余原则）：住址同步120，守护人电话致电确认意识，三个顺位电话逐级拨打 */
+  if (!form.address.trim()) return showToast('请填写家庭住址（拨120时同步给急救中心）')
+  if (!form.elder_phone.trim()) return showToast('请填写守护人电话（老人直线）')
+  if (!form.emergency_phones[0].trim()) return showToast('请填写紧急电话 1（第一顺位）')
+  if (!form.emergency_phones[1].trim()) return showToast('请填写紧急电话 2（冗余备用）')
+  if (!form.emergency_phones[2].trim()) return showToast('请填写紧急电话 3（冗余备用）')
   saving.value = true
   try {
     await store.saveProfile({
@@ -120,7 +129,9 @@ async function finish() {
       family_sudden_cardiac_death: form.family_sudden_cardiac_death,
       wake_time: form.wake_time,
       sleep_time: form.sleep_time,
-      emergency_phones: [],
+      address: form.address.trim(),
+      elder_phone: form.elder_phone.trim(),
+      emergency_phones: form.emergency_phones.map(p => p.trim()),
     })
     showSuccessToast('档案已建立')
   } catch {
@@ -147,6 +158,7 @@ async function finish() {
       <van-step>作息</van-step>
       <van-step>病史</van-step>
       <van-step>跌倒史</van-step>
+      <van-step>紧急联系</van-step>
     </van-steps>
 
     <!-- Step 0: 基本信息 -->
@@ -290,6 +302,18 @@ async function finish() {
         </van-cell>
       </van-cell-group>
       <p class="step-hint">跌倒史越多，系统判定越敏感，告警越及时。</p>
+    </div>
+
+    <!-- Step 5: 紧急联系（住址 + 守护人电话 + 三个顺位紧急电话，全部必填·冗余原则） -->
+    <div v-if="step === 5" class="step-body">
+      <van-cell-group inset>
+        <van-field v-model="form.address" label="家庭住址" placeholder="如：幸福小区 3 栋 2 单元 501" required />
+        <van-field v-model="form.elder_phone" label="守护人电话" type="tel" placeholder="老人直线，告警时第一时间致电确认意识" required />
+        <van-field v-model="form.emergency_phones[0]" label="紧急电话 1" type="tel" placeholder="第一顺位联系人" required />
+        <van-field v-model="form.emergency_phones[1]" label="紧急电话 2" type="tel" placeholder="冗余备用：电话1打不通自动切换" required />
+        <van-field v-model="form.emergency_phones[2]" label="紧急电话 3" type="tel" placeholder="冗余备用：电话2打不通自动切换" required />
+      </van-cell-group>
+      <p class="step-hint">住址在拨 120 时同步给急救中心；紧急电话按顺位逐个拨打，打不通自动切换下一个，多一路备份多一分把握。以上均为必填。</p>
     </div>
 
     <!-- 底部按钮 -->

@@ -77,6 +77,7 @@ export interface ProfileData {
   wake_time: string
   sleep_time: string
   address?: string
+  elder_phone?: string
   emergency_phones: string[]
   is_multi_medication?: boolean
   is_high_risk?: boolean

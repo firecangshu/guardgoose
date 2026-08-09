@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建档补采 · 家庭住址与紧急联系人 · 设计方案</title>
+<style>
+  body { margin: 0; background: #e9ebf0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; padding: 24px 12px; }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; color: #1d2129; text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; font-size: 13px; color: #86909c; margin-bottom: 20px; line-height: 1.8; }
+  .cols { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .col { width: 390px; }
+  .col-title { font-size: 14px; font-weight: 700; text-align: center; margin-bottom: 8px; padding: 6px; border-radius: 8px; }
+  .t-a { background: #dbeafe; color: #1d4ed8; }
+  .t-b { background: #fef3c7; color: #b45309; }
+  .phone {
+    background: #f7f8fa; border-radius: 28px; border: 8px solid #1d2129;
+    overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  }
+  .nav { background: #fff; padding: 12px 16px; font-size: 15px; font-weight: 600; text-align: center; border-bottom: 1px solid #f0f0f0; position: relative; }
+  .nav .back { position: absolute; left: 14px; color: #1989fa; font-size: 13px; top: 14px; }
+  .steps { display: flex; background: #fff; padding: 10px 8px; }
+  .stp { flex: 1; text-align: center; font-size: 10px; color: #969799; position: relative; }
+  .stp i { display: block; width: 14px; height: 14px; border-radius: 50%; background: #e5e6eb; margin: 0 auto 3px; font-style: normal; font-size: 9px; color: #fff; line-height: 14px; }
+  .stp.done i { background: #07c160; }
+  .stp.cur i { background: #1989fa; }
+  .stp.cur { color: #1989fa; font-weight: 700; }
+  .card { background: #fff; margin: 12px; border-radius: 10px; overflow: hidden; }
+  .field { display: flex; padding: 12px 14px; border-bottom: 1px solid #f5f5f5; font-size: 13px; align-items: flex-start; }
+  .field .lb { width: 92px; flex-shrink: 0; color: #323233; }
+  .field .lb .req { color: #ee0a24; margin-right: 2px; }
+  .field .ph { color: #c8c9cc; flex: 1; }
+  .field .val { color: #323233; flex: 1; }
+  .hint { font-size: 12px; color: #969799; padding: 12px 28px 0; line-height: 1.7; }
+  .btn { margin: 14px 24px; background: #1989fa; color: #fff; text-align: center; padding: 12px; border-radius: 22px; font-size: 15px; font-weight: 600; }
+  .tag { display: inline-block; font-size: 10px; background: #fee2e2; color: #b91c1c; border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .note { font-size: 12px; color: #86909c; line-height: 1.8; margin-top: 10px; padding: 0 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>建档补采 · 家庭住址与紧急联系人</h1>
+  <p class="sub">遗漏点：建档向导（5 步）目前不收住址与紧急电话，结案顺位联系 / 拨120 地址同步会提示"未登记"。<br>以下两个方案均在建档流程内补齐采集，必填校验后才能进守护页（定档）。</p>
+
+  <div class="cols">
+    <!-- 方案A：新增独立一步 -->
+    <div class="col">
+      <div class="col-title t-a">方案A · 新增第 6 步「住址与紧急联系」（推荐）</div>
+      <div class="phone">
+        <div class="nav"><span class="back">返回</span>建立守护档案</div>
+        <div class="steps">
+          <div class="stp done"><i>✓</i>基本信息</div>
+          <div class="stp done"><i>✓</i>身体状态</div>
+          <div class="stp done"><i>✓</i>作息</div>
+          <div class="stp done"><i>✓</i>病史</div>
+          <div class="stp done"><i>✓</i>跌倒史</div>
+          <div class="stp cur"><i>6</i>紧急联系</div>
+        </div>
+        <div class="card">
+          <div class="field">
+            <span class="lb"><span class="req">*</span>家庭住址</span>
+            <span class="val">幸福小区 3 栋 2 单元 501</span>
+          </div>
+          <div class="field">
+            <span class="lb"><span class="req">*</span>守护人电话</span>
+            <span class="val">139 0000 0000<span class="tag">老人直线</span></span>
+          </div>
+          <div class="field">
+            <span class="lb"><span class="req">*</span>紧急电话 1</span>
+            <span class="val">138 0000 0001<span class="tag">第一顺位</span></span>
+          </div>
+          <div class="field">
+            <span class="lb"><span class="req">*</span>紧急电话 2</span>
+            <span class="val">137 0000 0002<span class="tag">冗余备用</span></span>
+          </div>
+          <div class="field">
+            <span class="lb"><span class="req">*</span>紧急电话 3</span>
+            <span class="val">136 0000 0003<span class="tag">冗余备用</span></span>
+          </div>
+        </div>
+        <p class="hint">守护人电话＝老人直线，告警时第一时间致电确认意识；住址在拨 120 时同步给急救中心。紧急电话三个<b>全部必填（冗余原则）</b>：按顺位逐个拨打，打不通自动切换下一个，多一路备份多一分把握。</p>
+        <div class="btn">完成，开始守护</div>
+      </div>
+      <p class="note">改动：向导 5 步变 6 步，最后一步收住址+守护人电话+3 个紧急电话；住址、守护人电话、3 个紧急电话全部必填校验，不填不放行。原有 5 步完全不动。</p>
+    </div>
+
+    <!-- 方案B：并入基本信息步 -->
+    <div class="col">
+      <div class="col-title t-b">方案B · 并入第 1 步「基本信息」</div>
+      <div class="phone">
+        <div class="nav"><span class="back">返回</span>建立守护档案</div>
+        <div class="steps">
+          <div class="stp cur"><i>1</i>基本信息</div>
+          <div class="stp"><i>2</i>身体状态</div>
+          <div class="stp"><i>3</i>作息</div>
+          <div class="stp"><i>4</i>病史</div>
+          <div class="stp"><i>5</i>跌倒史</div>
+        </div>
+        <div class="card">
+          <div class="field"><span class="lb"><span class="req">*</span>姓名</span><span class="val">张桂芳</span></div>
+          <div class="field"><span class="lb"><span class="req">*</span>与您的关系</span><span class="val">母亲</span></div>
+          <div class="field"><span class="lb">年龄</span><span class="val">75</span></div>
+          <div class="field"><span class="lb"><span class="req">*</span>家庭住址</span><span class="val">幸福小区 3 栋 2 单元 501</span></div>
+          <div class="field"><span class="lb"><span class="req">*</span>守护人电话</span><span class="val">139 0000 0000</span></div>
+          <div class="field"><span class="lb"><span class="req">*</span>紧急电话 1</span><span class="val">138 0000 0001</span></div>
+          <div class="field"><span class="lb"><span class="req">*</span>紧急电话 2</span><span class="val">137 0000 0002</span></div>
+          <div class="field"><span class="lb"><span class="req">*</span>紧急电话 3</span><span class="val">136 0000 0003</span></div>
+        </div>
+        <p class="hint">住址、守护人电话与紧急电话属于"基本档案"，与姓名关系放在一起一次填完。</p>
+        <div class="btn">下一步</div>
+      </div>
+      <p class="note">改动：仍 5 步，第 1 步加长（姓名/关系/年龄/住址/守护人电话/3 个紧急电话挤在一屏，共 8 项，内容偏多需滚动）。</p>
+    </div>
+  </div>
+
+  <p class="sub" style="margin-top:22px">
+    两方案共同点：①数据写入现有档案字段（address / emergency_phone / emergency_phones），档案页仍可修改；<br>
+    ②守护人电话用于告警时第一时间致电老人确认意识；紧急电话三顺位逐级拨打；<br>
+    ③校验规则相同——住址、守护人电话、3 个紧急电话<b>全部必填（冗余原则）</b>，不填不放行。<br>
+    <b>请选定方案（默认推荐方案A），确认后改代码。</b>
+  </p>
+</div>
+</body>
+</html>
