@@ -37,12 +37,12 @@ const router = createRouter({
   ],
 })
 
-// 路由守卫：未登录 → 登录页；已登录未建档 → 档案向导
+// 路由守卫：未登录 → 登录页；已登录未定档 → 只准待在引导/建档/登录页（定档前可自由返回上一页）
 router.beforeEach((to) => {
   const loggedIn = !!localStorage.getItem('wg_logged')
   if (!loggedIn && to.path !== '/login') return '/login'
   if (loggedIn && !localStorage.getItem('wg_setup_done')) {
-    if (!['/setup', '/onboarding'].includes(to.path)) {
+    if (!['/setup', '/onboarding', '/login'].includes(to.path)) {
       return localStorage.getItem('wg_onboarded') ? '/setup' : '/onboarding'
     }
   }

@@ -207,18 +207,21 @@ async function handleLogout() {
   }
 }
 
-/** 退出：程序登出，清登录态回登录页（档案与记录保留，重登后直接进首页） */
+/** 退出登录：重头开始的唯一入口。清三个流程标记（登录/引导/定档），
+ * 重新登录需重走引导与建档；档案数据保留在后端，连档案一起清请用「注销」 */
 async function handleExit() {
   try {
     await showDialog({
       title: '退出登录',
-      message: '退出后需重新登录，档案与记录不受影响。',
+      message: '退出后重新登录需重走引导与建档流程，档案数据仍保留（想连档案一起清零请用「注销」）。',
       showCancelButton: true,
     })
   } catch {
     return // 取消
   }
   localStorage.removeItem('wg_logged')
+  localStorage.removeItem('wg_onboarded')
+  localStorage.removeItem('wg_setup_done')
   router.replace('/login')
 }
 </script>
