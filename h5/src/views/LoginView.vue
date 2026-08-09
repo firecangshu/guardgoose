@@ -28,7 +28,7 @@ function enter() {
   <div class="login-page">
     <div class="login-hero">
       <img class="login-logo" src="/guardgoose.png" alt="护院鹅 Guard Goose" />
-      <p class="app-slogan">CSI无感守护 · 让爱不缺席</p>
+      <p class="app-slogan">无感守护 爱永相随</p>
     </div>
 
     <van-cell-group inset class="login-form">
@@ -51,7 +51,7 @@ function enter() {
     </div>
 
     <div class="login-footer">
-      <span>小有可为 · AI向善创新挑战赛</span>
+      <span>AI向善 · v1.0.0</span>
     </div>
   </div>
 </template>
@@ -62,12 +62,12 @@ function enter() {
   background: linear-gradient(160deg, #e8f5e9 0%, #f7f8fa 45%);
   display: flex;
   flex-direction: column;
-  padding: 60px 24px 24px;
+  padding: 160px 24px 24px;
 }
 
 .login-hero {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 56px;
 }
 
 /* 品牌 LOGO：完整盾形徽章（含护院鹅 GUARD GOOSE 字样） */
@@ -81,13 +81,14 @@ function enter() {
 }
 
 .app-slogan {
-  font-size: 14px;
+  font-size: 17px;
   color: #86909c;
   margin: 0;
+  letter-spacing: 1px;
 }
 
 .login-form {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .login-action {
@@ -98,7 +99,7 @@ function enter() {
   font-size: 12px;
   color: #969799;
   text-align: center;
-  margin-top: 12px;
+  margin-top: 18px;
   line-height: 1.6;
 }
 

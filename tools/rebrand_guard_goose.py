@@ -23,7 +23,7 @@ en_size = 40
 cn_font = ImageFont.truetype(CN_FONT, cn_size, index=0)
 en_font = ImageFont.truetype(EN_FONT, en_size)
 
-H = bh + 200
+H = bh + 240  # 中英文间距加大后文字区多留 40px
 canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 canvas.paste(badge, ((W - bw) // 2, 0), badge)
 
@@ -49,12 +49,12 @@ cn_y = bh + 16
 draw.text((cn_x + 4, cn_y + 5), cn_text, font=cn_font, fill=(255, 255, 255, 220))  # 白色投影
 draw_outlined_text(draw, (cn_x, cn_y), cn_text, cn_font, YELLOW, NAVY, width=5)
 
-# GUARD GOOSE：深蓝，居中
+# GUARD GOOSE：深蓝，居中（与中文行距 48，避免靠太近）
 en_text = "GUARD GOOSE"
 en_bbox = draw.textbbox((0, 0), en_text, font=en_font)
 en_w = en_bbox[2] - en_bbox[0]
 en_x = (W - en_w) // 2
-en_y = cn_y + cn_size + 18
+en_y = cn_y + cn_size + 48
 draw.text((en_x + 2, en_y + 3), en_text, font=en_font, fill=(255, 255, 255, 200))  # 白色投影
 draw.text((en_x, en_y), en_text, font=en_font, fill=NAVY)
 
