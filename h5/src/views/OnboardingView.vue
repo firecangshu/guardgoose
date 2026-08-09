@@ -26,19 +26,12 @@ const SLIDES: { rich?: boolean; icon?: string; title?: string; desc?: string }[]
   },
 ]
 
-// 首屏（无感守护）富排版内容：文字与产品介绍页定稿完全一致，仅排版优化
-const ALERT_STEPS = [
-  '点「查看详情」',
-  '按提示处理',
-  '若误报点「误报，解除警报」',
-  '若确有其事点「情况属实，呼叫救援」',
-  '系统自动发起语音确证',
-]
+// 首屏（无感守护）富排版内容：文字为用户定稿，一字不动（见 docs/无感守护页_排版预览.html）
 const FEATURES = [
-  { k: '零隐私泄露：', t: '全程无图像、无录音，仅CSI信号特征' },
-  { k: '无感使用：', t: '老人无需佩戴、无需操作、无需改变习惯' },
-  { k: '跌倒+呼吸双监测：', t: '跌倒秒级告警，呼吸异常（过快/减弱/消失）同步预警' },
-  { k: '个性化适配：', t: '根据病史档案自动调整判定阈值，减少误报' },
+  { k: '零隐私泄露：', t: '无摄像头、无录音，家人收到的只有"平安/异常"结果信息；' },
+  { k: '智能防误报：', t: '告警前设备先语音问候老人，确认无恙自动消警，不轻易惊动家人；' },
+  { k: '病历个性化：', t: '同样的跌倒，依据病史给出不同的处置策略与告警等级；' },
+  { k: '本地运行：', t: '原始信号不出家门，断网后数据本地留存，网络恢复自动续传。' },
 ]
 
 function finish() {
@@ -65,42 +58,34 @@ function onChange(i: number) {
     <van-swipe class="swipe" :show-indicators="false" @change="onChange">
       <van-swipe-item v-for="(s, i) in SLIDES" :key="i">
         <div class="slide" :class="{ 'slide--rich': s.rich }">
-          <!-- 首屏：产品介绍富排版（文字原样保留，仅优化排版） -->
+          <!-- 首屏：产品介绍富排版（文字定稿一字不动，排版以本地预览为准） -->
           <template v-if="s.rich">
             <h1 class="rich-title">护院鹅 · 独居老人无感守护神</h1>
-            <div class="rich-intro">
-              <p>不用传统的摄像头，也不用佩戴任何设备——只需在房间放置一对CSI收发探测器，即可感知老人的活动与呼吸。</p>
-              <p class="intro-privacy">全程不采集任何图像和声音，只提取信号特征，守护隐私。</p>
-              <p>本地运行：数据在设备端处理，仅异常事件推送到子女手机。</p>
-            </div>
+            <div class="rich-intro">不用传统的摄像头，不用传统的手环，该设备无需复杂安装，插上电源即可守护老人，感知是否跌倒、呼吸是否紊乱等异常状态，并且第一时间通知给远在他方的您，为老人平添一份关怀。全程不采集任何图像和声音，本地运行，完美保护每一位独居老人的隐私！</div>
 
             <h3 class="rich-h">快速上手</h3>
             <table class="qs-table">
               <thead>
-                <tr><th>您想看…</th><th>页面</th><th>操作</th></tr>
+                <tr><th>页面</th><th>用途</th><th>操作</th></tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>老人现在怎么样</td>
-                  <td class="qs-page">守护页</td>
-                  <td>看最上面的卡片：绿色正常·橙色观察·红色告警·黑色紧急</td>
+                  <td class="qs-page">🏠 守护</td>
+                  <td>看实时状态与告警</td>
+                  <td><span class="c-green">绿色正常</span>·<span class="c-orange">橙色观察</span>·<span class="c-red">红色告警</span>·<span class="c-black">黑色紧急</span></td>
                 </tr>
                 <tr>
-                  <td>发生过什么</td>
-                  <td class="qs-page">事件库</td>
-                  <td>底部第二个按钮；每条事件点开可看完整过程</td>
+                  <td class="qs-page">📋 事件库</td>
+                  <td>查历史记录</td>
+                  <td>点「展开」看全部，点「导出」存文件</td>
+                </tr>
+                <tr>
+                  <td class="qs-page">❤️ 档案本</td>
+                  <td>填病史与紧急联系人</td>
+                  <td>填一次，告警判定自动因人而异</td>
                 </tr>
               </tbody>
             </table>
-
-            <h3 class="rich-h">收到告警</h3>
-            <div class="alert-flow">
-              <template v-for="(st, idx) in ALERT_STEPS" :key="idx">
-                <span class="flow-step">{{ st }}</span>
-                <span v-if="idx < ALERT_STEPS.length - 1" class="flow-arrow">→</span>
-              </template>
-            </div>
-            <p class="flow-note">（通过扬声器询问老人），并按紧急联系人顺序自动拨打，30秒无应答切下一位</p>
 
             <h3 class="rich-h">产品特点</h3>
             <ul class="feat-list">
@@ -205,7 +190,7 @@ function onChange(i: number) {
   margin: 0;
 }
 
-/* ---- 首屏富排版（无感守护产品介绍） ---- */
+/* ---- 首屏富排版（无感守护产品介绍，样式与本地预览一致）---- */
 .slide--rich {
   align-items: stretch;
   justify-content: flex-start;
@@ -215,40 +200,30 @@ function onChange(i: number) {
 }
 
 .rich-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   color: #1d2129;
   text-align: center;
-  margin: 10px 0 14px;
+  margin: 4px 0 14px;
 }
 
+/* 简介整段加黑加粗（用户定稿要求） */
 .rich-intro {
   background: #f7f8fa;
-  border-radius: 12px;
-  padding: 12px 14px;
-}
-
-.rich-intro p {
+  border-radius: 14px;
+  padding: 14px 15px;
   font-size: 14px;
-  color: #4e5969;
-  line-height: 1.7;
-  margin: 0 0 8px;
-}
-
-.rich-intro p:last-child {
-  margin-bottom: 0;
-}
-
-.intro-privacy {
-  color: #07c160;
-  font-weight: 600;
+  color: #1d2129;
+  font-weight: 700;
+  line-height: 1.8;
+  text-align: justify;
 }
 
 .rich-h {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #1d2129;
-  margin: 18px 0 10px;
+  margin: 20px 0 9px;
   padding-left: 8px;
   border-left: 3px solid #07c160;
 }
@@ -257,23 +232,23 @@ function onChange(i: number) {
   width: 100%;
   border-collapse: collapse;
   background: #f7f8fa;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 11.5px;
 }
 
 .qs-table th {
   background: #eef1f4;
   color: #86909c;
   font-weight: 600;
-  padding: 10px 8px;
+  padding: 7px 9px;
   text-align: left;
 }
 
 .qs-table td {
-  padding: 12px 8px;
+  padding: 8px 9px;
   color: #333;
-  line-height: 1.6;
+  line-height: 1.5;
   border-top: 1px solid #eef0f3;
   vertical-align: top;
 }
@@ -284,37 +259,10 @@ function onChange(i: number) {
   white-space: nowrap;
 }
 
-.alert-flow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 4px;
-  background: #f7f8fa;
-  border-radius: 12px;
-  padding: 12px 14px;
-}
-
-.flow-step {
-  background: #fff;
-  border: 1px solid #e5e6eb;
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 13px;
-  color: #333;
-  line-height: 1.5;
-}
-
-.flow-arrow {
-  color: #ff9f0a;
-  font-weight: 700;
-}
-
-.flow-note {
-  font-size: 12px;
-  color: #86909c;
-  line-height: 1.6;
-  margin: 8px 2px 0;
-}
+.c-green { color: #07c160; font-weight: 600; }
+.c-orange { color: #ff9f0a; font-weight: 600; }
+.c-red { color: #ee0a24; font-weight: 600; }
+.c-black { color: #1d2129; font-weight: 700; }
 
 .feat-list {
   list-style: none;
@@ -324,10 +272,10 @@ function onChange(i: number) {
 
 .feat-list li {
   position: relative;
-  padding: 10px 0 10px 18px;
-  font-size: 14px;
+  padding: 6px 0 6px 18px;
+  font-size: 12.5px;
   color: #333;
-  line-height: 1.6;
+  line-height: 1.55;
   border-bottom: 1px solid #f2f3f5;
 }
 
@@ -339,8 +287,8 @@ function onChange(i: number) {
   content: '●';
   position: absolute;
   left: 0;
-  top: 13px;
-  font-size: 10px;
+  top: 10px;
+  font-size: 9px;
   color: #07c160;
 }
 

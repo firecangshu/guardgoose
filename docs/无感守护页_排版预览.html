@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>护院鹅 · 无感守护页排版预览</title>
+<style>
+  body {
+    margin: 0;
+    background: #e9ebf0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+  /* 手机外壳：模拟子女端实际宽度 */
+  .phone {
+    width: 390px;
+    background: #fff;
+    border-radius: 28px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.15);
+    overflow: hidden;
+  }
+  .screen {
+    padding: 24px 18px 30px;
+    max-height: 780px;
+    overflow-y: auto;
+  }
+
+  /* ---- 标题 ---- */
+  h1.title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1d2129;
+    text-align: center;
+    margin: 4px 0 14px;
+  }
+
+  /* ---- 简介卡片：整段加黑加粗（用户定稿要求）---- */
+  .intro {
+    background: #f7f8fa;
+    border-radius: 14px;
+    padding: 14px 15px;
+    font-size: 14px;
+    color: #1d2129;
+    font-weight: 700;
+    line-height: 1.8;
+    text-align: justify;
+  }
+  .intro .privacy { color: #1d2129; font-weight: 700; }
+
+  /* ---- 段落标题 ---- */
+  h3.h {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1d2129;
+    margin: 20px 0 9px;
+    padding-left: 8px;
+    border-left: 3px solid #07c160;
+  }
+
+  /* ---- 快速上手表格 ---- */
+  table.qs {
+    width: 100%;
+    border-collapse: collapse;
+    background: #f7f8fa;
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 11.5px;
+  }
+  table.qs th {
+    background: #eef1f4;
+    color: #86909c;
+    font-weight: 600;
+    padding: 7px 9px;
+    text-align: left;
+  }
+  table.qs td {
+    padding: 8px 9px;
+    color: #333;
+    line-height: 1.5;
+    border-top: 1px solid #eef0f3;
+    vertical-align: top;
+  }
+  table.qs .page {
+    color: #1989fa;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .c-green { color: #07c160; font-weight: 600; }
+  .c-orange { color: #ff9f0a; font-weight: 600; }
+  .c-red { color: #ee0a24; font-weight: 600; }
+  .c-black { color: #1d2129; font-weight: 700; }
+
+  /* ---- 产品特点 ---- */
+  ul.feat {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  ul.feat li {
+    position: relative;
+    padding: 6px 0 6px 18px;
+    font-size: 12.5px;
+    color: #333;
+    line-height: 1.55;
+    border-bottom: 1px solid #f2f3f5;
+  }
+  ul.feat li:last-child { border-bottom: none; }
+  ul.feat li::before {
+    content: '●';
+    position: absolute;
+    left: 0; top: 10px;
+    font-size: 9px;
+    color: #07c160;
+  }
+  ul.feat b { color: #1d2129; }
+</style>
+</head>
+<body>
+<div class="phone"><div class="screen">
+
+  <h1 class="title">护院鹅 · 独居老人无感守护神</h1>
+
+  <div class="intro">不用传统的摄像头，不用传统的手环，该设备无需复杂安装，插上电源即可守护老人，感知是否跌倒、呼吸是否紊乱等异常状态，并且第一时间通知给远在他方的您，为老人平添一份关怀。<span class="privacy">全程不采集任何图像和声音，本地运行，完美保护每一位独居老人的隐私！</span></div>
+
+  <h3 class="h">快速上手</h3>
+  <table class="qs">
+    <thead>
+      <tr><th>页面</th><th>用途</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="page">🏠 守护</td>
+        <td>看实时状态与告警</td>
+        <td><span class="c-green">绿色正常</span>·<span class="c-orange">橙色观察</span>·<span class="c-red">红色告警</span>·<span class="c-black">黑色紧急</span></td>
+      </tr>
+      <tr>
+        <td class="page">📋 事件库</td>
+        <td>查历史记录</td>
+        <td>点「展开」看全部，点「导出」存文件</td>
+      </tr>
+      <tr>
+        <td class="page">❤️ 档案本</td>
+        <td>填病史与紧急联系人</td>
+        <td>填一次，告警判定自动因人而异</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 class="h">产品特点</h3>
+  <ul class="feat">
+    <li><b>零隐私泄露：</b>无摄像头、无录音，家人收到的只有"平安/异常"结果信息；</li>
+    <li><b>智能防误报：</b>告警前设备先语音问候老人，确认无恙自动消警，不轻易惊动家人；</li>
+    <li><b>病历个性化：</b>同样的跌倒，依据病史给出不同的处置策略与告警等级；</li>
+    <li><b>本地运行：</b>原始信号不出家门，断网后数据本地留存，网络恢复自动续传。</li>
+  </ul>
+
+</div></div>
+</body>
+</html>
