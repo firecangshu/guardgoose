@@ -224,3 +224,5 @@ MIT License
 ---
 
 > 🛡️ **护院鹅** —— 让科技守护每一位独居老人，让爱无延迟。
+
+- 镜像地址：https://gitcode.com/happyhouse/guardgoose
