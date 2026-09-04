@@ -1,6 +1,6 @@
 # 🛡️ 鹅在 · CSI 居家安全守护系统
 
-> 用 CSI 信号守护独居老人 · 非视觉、非穿戴、零隐私泄露
+> 鹅在（GD）是一款专为独居老年人打造的 AI 智能体居家守护系统。整套系统无需老人手动操作与佩戴设备，在不打扰日常起居的前提下实现全天候无感居家守护；可精准识别摔倒等高风险事件，能在分钟级向紧急联系人推送告警信息，有效降低因延误最佳抢救时机而直接或间接导致的致残、致死风险。为独居老年人群体构建起一套兼顾隐私保护与无感守护的居家安全屏障，为 AI 赋能居家守护提供更多想象空间。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://www.python.org/)
